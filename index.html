@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ตรวจสอบใบเสร็จ CP ALL / 7-Eleven (OCR)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Soft 7-Eleven palette: green / orange / red, all lightened for a
+       calm, low-saturation UI rather than the logo's full-strength colors. */
+    --paper: #F4FAF6; --paper-raised: #FFFFFF;
+    --ink: #1E3A2C; --ink-soft: #5E7469; --line: #D9E9DE;
+    --seal: #D6273F; --seal-soft: #FBE4E8;
+    --match: #0C8140; --match-soft: #DEF2E6;
+    --amber: #E67E22; --amber-soft: #FCEBD9;
+    --blue: #2A5C8A; --blue-soft: #E3ECF3;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(1200px 600px at 100% -10%, rgba(214,39,63,0.12), transparent 60%),
+                radial-gradient(900px 500px at -10% 110%, rgba(214,39,63,0.06), transparent 60%),
+                var(--paper);
+    color:var(--ink); font-family:'Sarabun',sans-serif; font-weight:400; line-height:1.55;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:1380px;margin:0 auto;}
+  header.top{display:flex; align-items:flex-end; justify-content:space-between; gap:20px; border-bottom:3px solid var(--seal); padding-bottom:18px; margin-bottom:28px; flex-wrap:wrap;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em; color:var(--seal); text-transform:uppercase; margin:0 0 6px;}
+  h1{font-size:24px; font-weight:700; margin:0; letter-spacing:-0.01em;}
+  .top-sub{color:var(--ink-soft); font-size:13.5px; max-width:620px; margin-top:6px;}
+  .privacy-pill{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); background:var(--paper-raised); border-radius:999px; padding:7px 14px; font-size:12.5px; color:var(--ink-soft); white-space:nowrap;}
+  .privacy-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--match);flex:none;}
+
+  .grid{display:grid; grid-template-columns:380px 1fr; gap:24px; align-items:start;}
+  @media (max-width:920px){ .grid{grid-template-columns:1fr;} }
+
+  .panel{background:var(--paper-raised); border:1px solid var(--line); border-radius:10px; padding:18px 20px;}
+  .panel + .panel{margin-top:18px;}
+  .panel h2{font-size:12.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); margin:0 0 12px; font-weight:600;}
+
+  textarea, input[type=text]{font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.55; border:1px solid var(--line); border-radius:6px; padding:9px 10px; background:#FCFBF8; color:var(--ink); width:100%;}
+  textarea{min-height:70px; resize:vertical;}
+  textarea:focus, input:focus{outline:2px solid var(--seal); outline-offset:1px;}
+  .hint{font-size:11px; color:var(--ink-soft); margin-top:6px; line-height:1.5;}
+  .field-row{margin-top:12px;}
+  .field-row label{display:block; font-size:12px; color:var(--ink-soft); margin-bottom:5px;}
+  .check-row{display:flex; align-items:flex-start; gap:9px; margin-top:12px; font-size:12.3px; color:var(--ink-soft); line-height:1.5;}
+  .check-row input{margin-top:2px;}
+  .threshold-row{display:flex; align-items:center; gap:10px; margin-top:12px;}
+  .threshold-row label{font-size:12.5px; color:var(--ink-soft); flex:1;}
+  .threshold-row input[type=number]{width:64px; text-align:center;}
+  input[type=date]{font-family:'Sarabun',sans-serif; font-size:12.5px; border:1px solid var(--line); border-radius:6px; padding:7px 9px; width:100%;}
+
+  .dropzone{margin-top:14px; border:2px dashed var(--line); border-radius:8px; padding:22px 14px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s;}
+  .dropzone:hover, .dropzone.drag{border-color:var(--seal); background:var(--seal-soft);}
+  .dropzone svg{width:24px;height:24px; color:var(--ink-soft); margin-bottom:6px;}
+  .dropzone p{margin:0; font-size:12.8px; color:var(--ink-soft);}
+  .dropzone strong{color:var(--ink);}
+  input#fileInput{display:none;}
+
+  #fileList{margin-top:12px; display:flex; flex-direction:column; gap:6px;}
+  .file-chip{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; background:#FCFBF8; border:1px solid var(--line); border-radius:6px; padding:6px 10px;}
+  .file-chip button{border:none; background:none; color:var(--seal); cursor:pointer; font-size:14px; line-height:1; padding:0 2px;}
+
+  button.primary{margin-top:14px; width:100%; padding:11px 16px; border:none; border-radius:7px; background:var(--seal); color:#fff; font-family:'Sarabun',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:transform .08s, background .15s;}
+  button.primary:hover:not(:disabled){background:#B81F34;}
+  button.primary:active:not(:disabled){transform:translateY(1px);}
+  button.primary:disabled{opacity:.5; cursor:not-allowed;}
+  button.ghost{margin-top:8px; width:100%; padding:8px 16px; border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--ink-soft); font-family:'Sarabun',sans-serif; font-size:12.8px; cursor:pointer;}
+  button.ghost:hover{border-color:var(--ink-soft); color:var(--ink);}
+  button.small{padding:5px 10px; font-size:11.3px; border-radius:5px; border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--ink-soft);}
+  button.small:hover{border-color:var(--ink);color:var(--ink);}
+  button.small.active-ok{background:var(--match-soft); border-color:var(--match); color:var(--match);}
+  button.small.active-bad{background:var(--seal-soft); border-color:var(--seal); color:var(--seal);}
+
+  .status-line{margin-top:12px; font-size:12px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace;}
+  .progress-track{height:6px; border-radius:99px; background:var(--line); overflow:hidden; margin-top:6px;}
+  .progress-fill{height:100%; width:0%; background:var(--seal); transition:width .2s;}
+  .train-stats{margin-top:12px; font-size:11.5px; color:var(--ink-soft); display:flex; gap:14px; flex-wrap:wrap; align-items:center;}
+  .train-stats b{color:var(--ink); font-size:14px;}
+  .train-stats .badge{background:var(--match-soft); color:var(--match); border-radius:999px; padding:2px 9px; font-weight:600;}
+
+  .results-toolbar{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:14px;}
+  .results-toolbar .left{display:flex; align-items:center; gap:16px; font-size:12.8px; color:var(--ink-soft); flex-wrap:wrap;}
+  .results-toolbar label{display:flex; align-items:center; gap:6px;}
+  .results-toolbar input[type=checkbox]{width:15px;height:15px;}
+  .results-toolbar .summary{font-size:12px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace;}
+  .export-btn{padding:8px 16px; border:1px solid var(--match); background:var(--match-soft); color:var(--match); border-radius:7px; font-size:12.8px; font-weight:600; cursor:pointer;}
+  .export-btn:hover{background:var(--match); color:#fff;}
+  .export-btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  .empty-state{border:1px dashed var(--line); border-radius:10px; padding:44px 20px; text-align:center; color:var(--ink-soft); font-size:13px;}
+
+  table.results-table{width:100%; border-collapse:collapse; background:var(--paper-raised); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  table.results-table th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); font-weight:600; padding:9px 8px; border-bottom:2px solid var(--ink); background:#FCFBF8;}
+  table.results-table td{padding:9px 8px; border-bottom:1px solid var(--line); font-size:12.5px; vertical-align:middle;}
+  table.results-table tr.row-fail td{background:var(--seal-soft);}
+  table.results-table tr.row-warn td{background:var(--amber-soft);}
+  table.results-table tr.clickable{cursor:pointer;}
+  table.results-table tr.clickable:hover td{filter:brightness(0.97);}
+  .mono{font-family:'JetBrains Mono',monospace; font-size:12px;}
+  .pill{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap;}
+  .pill.ok{background:var(--match-soft); color:var(--match);}
+  .pill.warn{background:var(--amber-soft); color:var(--amber); border:1px solid var(--amber);}
+  .pill.bad{background:var(--seal-soft); color:var(--seal); border:1px solid var(--seal);}
+  .pill.copy{background:var(--blue-soft); color:var(--blue);}
+  .score-num{font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .score-num.ok{color:var(--match);} .score-num.warn{color:var(--amber);} .score-num.bad{color:var(--seal);}
+
+  .detail-row td{background:#FCFBF8; padding:0;}
+  .detail-inner{padding:16px 20px 20px;}
+  .detail-section-title{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin:14px 0 8px; font-weight:600;}
+  .detail-section-title:first-child{margin-top:0;}
+  .field-list{display:flex; flex-direction:column; gap:6px;}
+  .field-item{display:grid; grid-template-columns:1fr 1fr 55px 120px; gap:10px; align-items:center; font-size:12.2px; padding:7px 10px; border:1px solid var(--line); border-radius:6px; background:#fff;}
+  .field-item .fname{color:var(--ink-soft);}
+  .field-item .fmatch{font-family:'JetBrains Mono',monospace; color:var(--ink);}
+  .field-item .fscore{text-align:right; font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .field-item .fbtns{display:flex; gap:5px; justify-content:flex-end;}
+  .excel-preview{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:8px;}
+  .excel-preview .cell{border:1px solid var(--line); border-radius:6px; padding:8px 10px; background:#fff;}
+  .excel-preview .cell.hl{border-color:var(--match); background:var(--match-soft);}
+  .excel-preview .cell .k{font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em;}
+  .excel-preview .cell .v{font-family:'JetBrains Mono',monospace; font-size:12.5px; margin-top:2px; word-break:break-word;}
+  details.raw{margin-top:14px;}
+  details.raw summary{cursor:pointer; font-size:12px; color:var(--ink-soft);}
+  details.raw pre{margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow:auto;}
+
+  .annot-wrap{margin-top:8px;}
+  .annot-wrap button.small{margin-bottom:8px;}
+  .annot-wrap img{max-width:100%; border:1px solid var(--line); border-radius:8px; display:block;}
+  .annot-legend{display:flex; gap:14px; margin-top:8px; font-size:11px; color:var(--ink-soft); flex-wrap:wrap;}
+  .annot-legend span{display:inline-flex; align-items:center; gap:5px;}
+  .legend-sw{width:12px;height:12px;border-radius:3px;display:inline-block;}
+  .annot-note{font-size:11px; color:var(--ink-soft); margin-top:6px;}
+
+  .copy-section{margin-top:26px;}
+  .copy-section h3{font-size:13.5px; margin:0 0 12px; display:flex; align-items:center; gap:8px;}
+
+  .learn-note{font-size:11px; color:var(--ink-soft); background:var(--blue-soft); border:1px solid var(--blue); border-radius:8px; padding:9px 12px; margin-bottom:12px; line-height:1.6;}
+
+  footer{margin-top:36px; padding-top:16px; border-top:1px solid var(--line); font-size:11.5px; color:var(--ink-soft); line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <p class="eyebrow">CP ALL / 7-Eleven Receipt · OCR Verification</p>
+      <h1>ตรวจสอบใบเสร็จ/ใบกำกับภาษี CP ALL</h1>
+      <p class="top-sub">ตรวจเฉพาะใบเสร็จ บมจ.ซีพี ออลล์ — เช็คว่าเป็นเอกสารของผู้ออกจริง ชื่อ+ที่อยู่ลูกค้าครบถ้วนสะกดถูก อ่านเลขสาขาจากช่อง "สาขาที่ออกใบกำกับภาษี" แล้วเลือกยอดเงินตามวันที่ที่กำหนด</p>
+    </div>
+    <div class="privacy-pill"><span class="dot"></span>ประมวลผลในเบราว์เซอร์ทั้งหมด — ไฟล์ไม่ถูกส่งขึ้นเซิร์ฟเวอร์</div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>1 · ผู้ออกใบเสร็จ (ต้องเป็นเอกสารของ CP ALL)</h2>
+        <div class="field-row">
+          <label>ที่อยู่ผู้ออก (เช็คแบบ "มีคำนี้ไหม" ทุกคำ)</label>
+          <textarea id="issuerAddrInput" style="min-height:56px;">313 อาคาร ซี.พี.ทาวเวอร์ ชั้น24 ถ.สีลม แขวงสีลม เขตบางรัก กรุงเทพฯ 10500</textarea>
+        </div>
+        <div class="field-row">
+          <label>เลขประจำตัวผู้เสียภาษีผู้ออก</label>
+          <input type="text" id="issuerTaxIdInput" value="0107542000011">
+        </div>
+        <p class="hint">แค่เช็คว่ามีเลขผู้เสียภาษี + มีคำในที่อยู่ + มีข้อความ "สาขาที่ออกใบกำกับภาษี" อยู่ในเอกสารหรือไม่ ถ้าไม่ผ่านจะไม่นับเป็นเอกสาร CP ALL และไม่รวมใน Excel สรุป</p>
+      </div>
+
+      <div class="panel">
+        <h2>2 · ข้อมูลลูกค้า (ปตท.) — เน้นตรวจชื่อเป็นพิเศษ</h2>
+        <div class="field-row">
+          <label>ชื่อผู้ซื้อสินค้า (แต่ละคำต้องสะกดถูก เว้นวรรคได้)</label>
+          <input type="text" id="customerNameInput" value="บริษัทปตท. น้ำมันและการค้าปลีก จำกัด (มหาชน)">
+        </div>
+        <div class="field-row">
+          <label>ที่อยู่/คำที่ต้องมี (อิสระ ไม่ต้องเรียง) — B/บี และ ชั้น/ชั้นที่ ถือว่าเหมือนกัน</label>
+          <textarea id="refText">สำนักงานใหญ่ 555/2 ศูนย์เอนเนอร์ยี่คอมเพล็กซ์ อาคารบี ชั้น 12
+ถนนวิภาวดีรังสิต แขวงจตุจักร เขตจตุจักร กรุงเทพฯ 10900</textarea>
+        </div>
+        <div class="field-row">
+          <label>เลขประจำตัวผู้เสียภาษีลูกค้า</label>
+          <input type="text" id="taxIdInput" value="0107561000013">
+        </div>
+        <p class="hint">กรุงเทพฯ/กรุงเทพมหานคร ถือว่าเหมือนกัน — ชื่อบริษัทให้น้ำหนักคะแนนสูงสุดในการคำนวณคะแนนรวม</p>
+      </div>
+
+      <div class="panel">
+        <h2>3 · วันที่ใช้ตัดสินยอดเงิน</h2>
+        <div class="field-row" style="margin-top:0;">
+          <label>ใบเสร็จลงวันที่ไม่เกินวันที่ (ปล่อยว่าง = ไม่จำกัด)</label>
+          <input type="date" id="dateEndInput">
+        </div>
+        <p class="hint">ถ้าที่อยู่/ชื่อลูกค้าถูกต้อง + วันที่บนใบเสร็จไม่เกินวันที่กำหนด → ใช้ "ยอดรวมทั้งสิ้น" (รวม VAT)<br>ถ้าชื่อ/ที่อยู่ผิด หรือวันที่เกินกำหนด → ใช้ "มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม" (ตัด VAT ออก)</p>
+        <div class="threshold-row">
+          <label for="threshold">เกณฑ์ผ่านโดยรวม (%)</label>
+          <input type="number" id="threshold" min="0" max="100" value="60">
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>4 · อัปโหลดเอกสาร (PDF)</h2>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="อัปโหลดไฟล์ PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+          <p><strong>คลิกเพื่อเลือกไฟล์</strong> หรือลากไฟล์ PDF มาวางที่นี่</p>
+        </div>
+        <input type="file" id="fileInput" accept="application/pdf" multiple>
+        <div id="fileList"></div>
+        <button class="primary" id="runBtn" disabled>ตรวจสอบเอกสารทั้งหมด</button>
+        <button class="ghost" id="clearBtn">ล้างทั้งหมด (ไม่ลบข้อมูลเทรน)</button>
+        <div class="status-line" id="statusLine"></div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="train-stats">
+          <span>เก็บสถิติสะสมในเบราว์เซอร์นี้ —</span>
+          <span>ยืนยันถูก <b class="badge" id="statConfirm">0</b></span>
+          <span>แก้ไขผิด <b class="badge" id="statReject">0</b></span>
+        </div>
+        <button class="ghost" id="resetTrainBtn" style="margin-top:6px;">ล้างข้อมูลเทรนทั้งหมด</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="results-toolbar" id="resultsToolbar" style="display:none;">
+        <div class="left">
+          <label><input type="checkbox" id="failOnlyToggle"> แสดงเฉพาะรายการที่ไม่ผ่านเกณฑ์</label>
+          <span class="summary" id="summaryText"></span>
+        </div>
+        <button class="export-btn" id="exportBtn" disabled>⬇ ส่งออกเป็น Excel</button>
+      </div>
+      <div id="resultsHolder">
+        <div class="empty-state" id="emptyState">ยังไม่มีผลลัพธ์ — อัปโหลดไฟล์ PDF แล้วกด "ตรวจสอบเอกสารทั้งหมด"</div>
+      </div>
+      <div class="copy-section" id="copySection" style="display:none;">
+        <h3>เอกสารที่เป็นสำเนา <span class="pill copy" id="copyCount">0</span></h3>
+        <div id="copyHolder"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    OCR ภาษาไทยทำงานผ่าน Tesseract.js (WebAssembly) ในเบราว์เซอร์ของคุณโดยตรง — การโหลดโมดูลภาษาไทยครั้งแรกอาจใช้เวลาสักครู่<br>
+    <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
+    <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด และอยู่ใน Excel ชีท "สถิติการเทรน" — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
+    <strong>Excel:</strong> ชีทหลัก "สรุป" มี ใบที่ / เลขสาขา / ยอดเงิน — ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const pdfjsLib = window['pdfjsLib'];
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+  let queuedFiles = [];
+  let worker = null;
+  let allBills = [];
+  let feedback = { aliases: {}, rejects: {}, stats: { confirm: 0, reject: 0 } };
+  const FEEDBACK_KEY = 'cpall-word-feedback-v3';
+
+  const els = {};
+  ['issuerAddrInput','issuerTaxIdInput','customerNameInput','refText','taxIdInput',
+   'dateEndInput','threshold','dropzone','fileInput','fileList',
+   'runBtn','clearBtn','resultsHolder','emptyState','resultsToolbar','failOnlyToggle',
+   'summaryText','statusLine','progressFill','exportBtn','copySection','copyHolder',
+   'copyCount','statConfirm','statReject','resetTrainBtn'].forEach(id => els[id] = document.getElementById(id));
+
+  // ---------- persistent feedback ("training") ----------
+  // Stored via the browser's own localStorage under a fixed key, so it
+  // accumulates across every run and every visit until the browser's site
+  // data is cleared. Never reset by "ล้างทั้งหมด" (that only clears the
+  // current batch of results, not the learned corrections).
+  // NOTE: this file is meant to be downloaded and opened directly in a
+  // normal browser tab (not inside a sandboxed preview), which is exactly
+  // where localStorage works correctly and persists across page reloads.
+  function loadFeedback(){
+    try{
+      const raw = localStorage.getItem(FEEDBACK_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        feedback = {
+          aliases: parsed.aliases || {},
+          rejects: parsed.rejects || {},
+          stats: parsed.stats || { confirm: 0, reject: 0 }
+        };
+      }
+    }catch(e){ console.warn('localStorage unavailable — training will not persist across reloads this session', e); }
+    updateStatDisplay();
+  }
+  function saveFeedback(){
+    try{ localStorage.setItem(FEEDBACK_KEY, JSON.stringify(feedback)); }
+    catch(e){ console.warn('feedback save failed', e); }
+    updateStatDisplay();
+  }
+  function updateStatDisplay(){
+    els.statConfirm.textContent = feedback.stats.confirm;
+    els.statReject.textContent = feedback.stats.reject;
+  }
+  function markReject(word, matchedText){
+    if(!feedback.rejects[word]) feedback.rejects[word] = [];
+    if(!feedback.rejects[word].includes(matchedText)) feedback.rejects[word].push(matchedText);
+    feedback.stats.reject += 1; saveFeedback();
+  }
+  function markAlias(word, matchedText){
+    if(!feedback.aliases[word]) feedback.aliases[word] = [];
+    if(!feedback.aliases[word].includes(matchedText)) feedback.aliases[word].push(matchedText);
+    feedback.stats.confirm += 1; saveFeedback();
+  }
+
+  // ---------- file selection UI ----------
+  els.dropzone.addEventListener('click', () => els.fileInput.click());
+  els.dropzone.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') els.fileInput.click(); });
+  els.dropzone.addEventListener('dragover', e => { e.preventDefault(); els.dropzone.classList.add('drag'); });
+  els.dropzone.addEventListener('dragleave', () => els.dropzone.classList.remove('drag'));
+  els.dropzone.addEventListener('drop', e => {
+    e.preventDefault(); els.dropzone.classList.remove('drag');
+    addFiles(Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf'));
+  });
+  els.fileInput.addEventListener('change', e => { addFiles(Array.from(e.target.files)); els.fileInput.value=''; });
+
+  function addFiles(files){ for(const f of files) queuedFiles.push(f); renderFileList(); }
+  function renderFileList(){
+    els.fileList.innerHTML = '';
+    queuedFiles.forEach((f, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip';
+      chip.innerHTML = `<span>${escapeHtml(f.name)}</span>`;
+      const btn = document.createElement('button');
+      btn.textContent = '✕'; btn.title = 'ลบไฟล์นี้';
+      btn.onclick = () => { queuedFiles.splice(i,1); renderFileList(); };
+      chip.appendChild(btn);
+      els.fileList.appendChild(chip);
+    });
+    els.runBtn.disabled = queuedFiles.length === 0;
+  }
+  els.clearBtn.addEventListener('click', () => {
+    // Clears only the current batch of files/results — feedback/training
+    // data is intentionally left untouched (that's the whole point of it
+    // persisting).
+    queuedFiles = []; allBills = []; renderFileList();
+    els.resultsHolder.innerHTML = ''; els.resultsHolder.appendChild(els.emptyState);
+    els.resultsToolbar.style.display = 'none';
+    els.copySection.style.display = 'none';
+    els.statusLine.textContent = ''; els.progressFill.style.width = '0%';
+    els.exportBtn.disabled = true;
+  });
+  els.resetTrainBtn.addEventListener('click', () => {
+    if(!confirm('ล้างข้อมูลเทรนทั้งหมด (คำที่เคยกด ✓/✗ ไว้) ในเบราว์เซอร์นี้ถาวร — ใช้เมื่อสงสัยว่ามีการกดผิดสะสมไว้ ต้องการดำเนินการต่อไหม?')) return;
+    feedback = { aliases: {}, rejects: {}, stats: { confirm: 0, reject: 0 } };
+    saveFeedback();
+  });
+
+  // ---------- text utils ----------
+  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function stripSpace(s){ return String(s).replace(/\s+/g,''); }
+  function canonicalizeText(s){
+    let t = String(s);
+    t = t.replace(/กรุงเทพมหานคร/g,'กรุงเทพ').replace(/กรุงเทพฯ/g,'กรุงเทพ').replace(/กทม\.?/g,'กรุงเทพ');
+    t = t.replace(/อาคาร\s*บี/g, 'อาคารบี').replace(/อาคาร\s*[Bb]\b/g, 'อาคารบี');
+    t = t.replace(/ชั้นที่\s*12/g, 'ชั้น12').replace(/ชั้น\s*12/g, 'ชั้น12');
+    return t;
+  }
+  function lcsLength(a,b){
+    const n=a.length,m=b.length; let prev=new Array(m+1).fill(0);
+    for(let i=1;i<=n;i++){ const cur=new Array(m+1).fill(0);
+      for(let j=1;j<=m;j++){ cur[j] = a[i-1]===b[j-1] ? prev[j-1]+1 : Math.max(prev[j],cur[j-1]); }
+      prev=cur; }
+    return prev[m];
+  }
+  function similarityRatio(a,b){
+    if(a.length===0 && b.length===0) return 1;
+    return (2*lcsLength(a,b))/(a.length+b.length);
+  }
+  function classify(word, score){
+    const len = stripSpace(word).length;
+    const exactThresh = len <= 4 ? 0.97 : 0.95;
+    const nearThresh  = len <= 4 ? 0.90 : 0.75;
+    if(score >= exactThresh) return 'ตรง';
+    if(score >= nearThresh) return 'สะกดผิด/ใกล้เคียง';
+    return 'ไม่พบ';
+  }
+  function approxFindChars(word, hay){
+    const w = stripSpace(canonicalizeText(word));
+    const h = stripSpace(canonicalizeText(hay));
+    if(w.length===0) return {score:1, match:''};
+    if(h.length===0) return {score:0, match:''};
+    const tol = Math.min(6, Math.max(1, Math.ceil(w.length*0.3)));
+    const minLen = Math.max(1, w.length-tol);
+    const maxLen = Math.min(h.length, w.length+tol);
+    let best=-1, bestText='';
+    for(let len=minLen; len<=maxLen; len++){
+      for(let start=0; start+len<=h.length; start++){
+        const win = h.substr(start,len);
+        const r = similarityRatio(w, win);
+        if(r>best){ best=r; bestText=win; }
+      }
+    }
+    // Leading-character dropout is a very common failure mode on short Thai
+    // words in these scans — a table cell's left edge gets slightly cropped,
+    // or an initial character built on "ำ"/"ส"/"จ" (สำนักงาน, จำกัด, etc.)
+    // just doesn't render with enough contrast for Tesseract. When the tail
+    // end of the word (its last 60%+ of characters, in order) shows up in
+    // the text as an exact, unbroken match, that is strong evidence the word
+    // itself is really there — only the OCR engine dropped its start — so it
+    // shouldn't be scored as harshly as an arbitrary partial/garbled match.
+    for(let suffixLen = w.length; suffixLen >= Math.ceil(w.length*0.6) && suffixLen >= 2; suffixLen--){
+      const suffix = w.slice(w.length - suffixLen);
+      if(h.includes(suffix)){
+        const suffixScore = 0.90 + 0.10 * (suffixLen / w.length);
+        if(suffixScore > best){ best = suffixScore; bestText = suffix; }
+        break;
+      }
+    }
+    return {score:Math.max(best,0), match:bestText};
+  }
+  // Scope customer-field matching to just the customer info block (the
+  // customer's own tax-id/"สำนักงานใหญ่" line through the address line, up
+  // to the item table) instead of the whole page. Without this, a required
+  // word that's genuinely absent from a truncated customer address (no
+  // district/postal code on some CP ALL receipts) could still find a
+  // coincidental look-alike elsewhere on the page — e.g. "กรุงเทพฯ" cross-
+  // matching the issuer's own Bangkok address, or a postal code
+  // cross-matching digits buried inside an unrelated ID number — producing
+  // a misleadingly high score for a field that isn't really there.
+  //
+  // Primary anchor: the END of the customer's own tax-id digit run
+  // (tolerant of stray whitespace OCR sometimes inserts between digits).
+  // Digits are read far more reliably by OCR than compound Thai phrases,
+  // so anchoring here is much sturdier than anchoring on text like
+  // "ชื่อผู้ซื้อ", which OCR can garble into something unrecognizable
+  // (seen in practice: "ชื่อผู้ซื้อสินค้า" misread as "ข้อยู่ซื้อสินค้า").
+  // Falls back to fuzzy-tolerant text anchors, then to the full page, if
+  // the digit anchor can't be found either.
+  function extractCustomerSection(rawText, customerTaxId){
+    let start = -1;
+    if(customerTaxId){
+      const pattern = customerTaxId.split('').join('\\s*');
+      try{
+        const re = new RegExp(pattern, 'g');
+        let m, lastEnd = -1;
+        while((m = re.exec(rawText)) !== null){
+          lastEnd = m.index + m[0].length;
+          if(m[0].length === 0) re.lastIndex++;
+        }
+        if(lastEnd !== -1) start = lastEnd;
+      }catch(e){}
+    }
+    if(start === -1){
+      const anchorPatterns = [/ชื่อผู้ซื้อ/, /ผู้ซื้อสินค้า/, /ชือผู้ซื้อ/, /ชื่อผู้ซี้อ/];
+      for(const p of anchorPatterns){ const i = rawText.search(p); if(i !== -1){ start = i; break; } }
+    }
+    if(start === -1) return rawText;
+    let windowText = rawText.slice(start);
+    const endMarkers = ['NO.', 'จำนวน', 'รายการสินค้า', 'ลำดับ'];
+    let endIdx = windowText.length;
+    for(const mk of endMarkers){ const mi = windowText.indexOf(mk); if(mi!==-1 && mi<endIdx) endIdx=mi; }
+    // Generous cap — just a sanity ceiling, not meant to bind in practice.
+    // OCR output on noisy scans often has long runs of stray whitespace or
+    // garbled characters between the tax-id line and the address, so a
+    // tight cap here can truncate the window before the address/postal
+    // code is even reached.
+    endIdx = Math.min(endIdx, 800);
+    const result = windowText.slice(0, endIdx);
+    // Safety net: a genuine customer block (name + address) is never this
+    // short. If we land here, something matched where it shouldn't have —
+    // fall back to the full page rather than silently reporting "not
+    // found" for text that's actually right there in the OCR output.
+    if(result.trim().length < 40) return rawText;
+    return result;
+  }
+  // Also mask out the customer's own tax-id digits from that scoped text
+  // before word-matching, so a numeric field like a postal code can't
+  // coincidentally cross-match a substring buried inside the tax ID.
+  function maskKnownDigits(text, digitsToMask){
+    if(!digitsToMask) return text;
+    const pattern = digitsToMask.split('').join('\\s*');
+    try{
+      const re = new RegExp(pattern, 'g');
+      return text.replace(re, ' ');
+    }catch(e){ return text; }
+  }
+  function detectCopy(rawText){
+    const h = stripSpace(rawText);
+    if(h.includes('สำเนา')) return true;
+    return approxFindChars('สำเนา', rawText).score >= 0.93;
+  }
+
+  // ---------- token/bbox matching (visualization only) ----------
+  function extractTessWords(data){
+    if(Array.isArray(data.words) && data.words.length) return data.words.filter(w=>w && w.text && w.bbox);
+    const out = [];
+    for(const block of (data.blocks||[])){
+      for(const para of (block.paragraphs||[])){
+        for(const line of (para.lines||[])){
+          for(const w of (line.words||[])){ if(w && w.text && w.bbox) out.push(w); }
+        }
+      }
+    }
+    return out;
+  }
+  function windowJoin(tw, start, w){ return tw.slice(start,start+w).map(x=>stripSpace(canonicalizeText(x.text))).join(''); }
+  function windowJoinDigits(tw, start, w){ return tw.slice(start,start+w).map(x=>x.text).join('').replace(/\D/g,''); }
+  function windowBBox(tw, start, w){
+    const slice = tw.slice(start,start+w);
+    return { x0: Math.min(...slice.map(x=>x.bbox.x0)), y0: Math.min(...slice.map(x=>x.bbox.y0)),
+             x1: Math.max(...slice.map(x=>x.bbox.x1)), y1: Math.max(...slice.map(x=>x.bbox.y1)) };
+  }
+  function findBboxTokens(query, tw){
+    const q = stripSpace(canonicalizeText(query));
+    if(q.length===0 || tw.length===0) return null;
+    const maxW = Math.min(tw.length, Math.max(1, Math.ceil(q.length/2)) + 4);
+    let best=-1, bestBBox=null;
+    for(let w=1; w<=maxW; w++){
+      for(let start=0; start+w<=tw.length; start++){
+        const joined = windowJoin(tw, start, w);
+        if(joined.length===0) continue;
+        const r = similarityRatio(q, joined);
+        if(r>best){ best=r; bestBBox=windowBBox(tw,start,w); }
+      }
+    }
+    return best >= 0.6 ? bestBBox : null;
+  }
+  function findBboxDigits(queryDigits, tw){
+    if(!queryDigits || tw.length===0) return null;
+    const maxW = Math.min(tw.length, 20);
+    let best=-1, bestBBox=null;
+    for(let w=1; w<=maxW; w++){
+      for(let start=0; start+w<=tw.length; start++){
+        const joined = windowJoinDigits(tw, start, w);
+        if(joined.length===0) continue;
+        const r = similarityRatio(queryDigits, joined);
+        if(r>best){ best=r; bestBBox=windowBBox(tw,start,w); }
+      }
+    }
+    return best >= 0.6 ? bestBBox : null;
+  }
+  function matchWord(word, rawText, tessWords){
+    const aliasList = feedback.aliases[word] || [];
+    const hStripped = stripSpace(canonicalizeText(rawText));
+    const wCanon = stripSpace(canonicalizeText(word));
+    for(const alias of aliasList){
+      const aliasCanon = stripSpace(canonicalizeText(alias));
+      // Sanity check: a confirmed alias should itself resemble the word it
+      // stands in for. Without this, a single accidental "✓ ถูก" click on a
+      // wrong/garbled match (e.g. confirming "นักง" as if it were "กรุงเทพ")
+      // would permanently grant that garbage text a 100% score on every
+      // future document — mathematically that's the only way a fuzzy match
+      // between very different strings could ever show 100%.
+      if(similarityRatio(wCanon, aliasCanon) < 0.5) continue;
+      if(hStripped.includes(aliasCanon)){
+        return { score:1, match: alias, bbox: tessWords.length ? findBboxTokens(alias, tessWords) : null };
+      }
+    }
+    const r = approxFindChars(word, rawText);
+    const rejectList = feedback.rejects[word] || [];
+    if(rejectList.includes(r.match)) return { score:0, match:'', bbox:null };
+    return { score: r.score, match: r.match, bbox: tessWords.length ? findBboxTokens(word, tessWords) : null };
+  }
+
+  // ---------- excel field extraction ----------
+  function extractInvoiceNo(rawText){
+    const m = rawText.match(/เลขที่\s*[:：]?\s*([A-Za-z0-9]{5,20})/);
+    return m ? m[1].trim() : '';
+  }
+  function extractInvoiceDate(rawText){
+    const m = rawText.match(/วันที่\s*[:：]?\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(!m) return null;
+    const day=+m[1], month=+m[2], by=+m[3];
+    const d = new Date(by-543, month-1, day); // CP ALL receipts use the Buddhist calendar
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function extractBranchCode(rawText){
+    // Method 1 (PRIMARY): the ink STAMP at the bottom of the document —
+    // "รหัสสาขา SC 4886" / "CC1234" — is the source of truth for branch
+    // code, since the printed "สาขาที่ออกใบกำกับภาษี" field in the body can
+    // reflect a different branch (e.g. reprints/voided-and-reissued bills)
+    // than the branch that physically stamped and handled this copy.
+    const stampLabelIdx = rawText.indexOf('รหัสสาขา');
+    if(stampLabelIdx !== -1){
+      const forward = rawText.slice(stampLabelIdx, stampLabelIdx+40);
+      const prefixed = forward.match(/([A-Za-z]{1,2})\s?-?\s?([0-9]{3,6})/);
+      if(prefixed) return prefixed[1].toUpperCase()+' '+prefixed[2];
+      const digitsOnly = forward.match(/([0-9]{3,6})/);
+      if(digitsOnly) return digitsOnly[1];
+    }
+    let sm = rawText.match(/(SC|CC)\s?-?\s?([0-9]{3,6})/i);
+    if(sm) return sm[1].toUpperCase()+' '+sm[2];
+    // Method 2 (fallback): printed "สาขาที่ออกใบกำกับภาษี : #####" field —
+    // only used when no stamp could be read at all.
+    let m = rawText.match(/สาขาที่ออกใบกำกับภาษี\s*[:：]?\s*(\d{3,6})/);
+    if(m) return m[1].trim();
+    const label = 'สาขาที่ออกใบกำกับภาษี';
+    const stripped = stripSpace(canonicalizeText(rawText));
+    for(let i=0; i+label.length<=stripped.length; i++){
+      const window = stripped.substr(i, label.length+4);
+      if(similarityRatio(label, window.slice(0,label.length)) >= 0.8){
+        const forward = stripped.slice(i+label.length, i+label.length+20);
+        const dm = forward.match(/(\d{3,6})/);
+        if(dm) return dm[1];
+      }
+    }
+    return '';
+  }
+  function extractAllAmounts(rawText){ return (rawText.match(/\d{1,3}(?:,\d{3})*\.\d{2}/g) || []); }
+  // Fuzzy line-start match: tolerant of a few OCR-misread characters within
+  // a long label like "มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม" — a strict
+  // line.startsWith() check fails completely the moment even one character
+  // in that label is misread, which was silently falling through to the
+  // wrong number (or the position-based fallback landing on the wrong slot).
+  function fuzzyLineStartsWith(line, keyword, minScore){
+    const prefix = line.slice(0, keyword.length + 6);
+    return similarityRatio(stripSpace(keyword), stripSpace(prefix)) >= minScore;
+  }
+  function fuzzyLineScore(line, keyword){
+    const prefix = line.slice(0, keyword.length + 6);
+    return similarityRatio(stripSpace(keyword), stripSpace(prefix));
+  }
+  // Picks the SINGLE BEST-scoring label line across the whole document,
+  // rather than the first line that merely crosses minScore. CP ALL's VAT
+  // summary block has near-duplicate labels ("มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม"
+  // vs "มูลค่าสินค้ารวมภาษีมูลค่าเพิ่ม" — before-VAT vs total-incl-VAT — differ
+  // by only 3-4 characters, ~0.87 similar to each other) so a first-match
+  // approach can grab the wrong one whenever OCR's reading order or a stray
+  // misread character lets the wrong line win the race. Scanning every line
+  // and keeping the highest-scoring one is robust to both.
+  function extractAmountFuzzy(rawText, keywords, minScore){
+    const lines = rawText.split('\n').map(l=>l.trim()).filter(Boolean);
+    let bestScore = 0, bestLine = null;
+    for(const line of lines){
+      for(const kw of keywords){
+        const sc = fuzzyLineScore(line, kw);
+        if(sc > bestScore){ bestScore = sc; bestLine = line; }
+      }
+    }
+    if(!bestLine || bestScore < minScore) return '';
+    const m = bestLine.match(/\d{1,3}(?:,\d{3})*\.\d{2}/);
+    return m ? m[0] : '';
+  }
+  function extractAmountForward(rawText, keywords, windowChars){
+    for(const kw of keywords){
+      let idx = 0;
+      while(true){
+        const pos = rawText.indexOf(kw, idx);
+        if(pos === -1) break;
+        const forward = rawText.slice(pos + kw.length, pos + kw.length + windowChars);
+        const m = forward.match(/\d{1,3}(?:,\d{3})*\.\d{2}/);
+        if(m) return m[0];
+        idx = pos + kw.length;
+      }
+    }
+    return '';
+  }
+  // Three methods combined, in order of preference: (1) fuzzy match on the
+  // label at the start of its line — tolerant of a few misread characters;
+  // (2) exact substring forward-scan, as a stricter secondary check; (3)
+  // fixed position counted from the END of all decimal amounts on the
+  // page — CP ALL's summary block is always the same 7-number sequence
+  // [มูลค่าสินค้ารวม, ส่วนลด, ไม่เสียภาษี, ก่อนVAT, VAT, รวมภาษี, รวมทั้งสิ้น]
+  // regardless of how many item rows precede it, so this survives cases
+  // where Tesseract's reading order separates the label column from the
+  // number column entirely.
+  // Final validation layer: Thai VAT is a fixed 7%, so subtotal should
+  // always equal total / 1.07. If whatever we extracted doesn't roughly
+  // satisfy that (e.g. we accidentally grabbed a "0.00" from a neighbouring
+  // line like "สินค้าไม่เสียภาษีมูลค่าเพิ่ม"), search all decimal amounts on
+  // the page for whichever one actually fits the expected relationship and
+  // use that instead — this is a hard mathematical constraint of the
+  // document, so it catches wrong-line mistakes the text-based methods miss.
+  function correctSubtotalWithVatMath(subtotal, total, all){
+    if(!total) return subtotal;
+    const totalNum = parseFloat(total.replace(/,/g,''));
+    if(isNaN(totalNum) || totalNum <= 0) return subtotal;
+    const expected = totalNum / 1.07;
+    const subtotalNum = subtotal ? parseFloat(subtotal.replace(/,/g,'')) : NaN;
+    if(!isNaN(subtotalNum) && Math.abs(subtotalNum - expected) < 0.5) return subtotal;
+    let best = null, bestDiff = Infinity;
+    for(const a of all){
+      const n = parseFloat(a.replace(/,/g,''));
+      const diff = Math.abs(n - expected);
+      if(diff < bestDiff){ bestDiff = diff; best = a; }
+    }
+    if(best && bestDiff < 0.5) return best;
+    // No decimal on the page actually reads back as total/1.07 — OCR likely
+    // mangled the "ก่อนภาษี" figure entirely (missing decimal point, split
+    // across lines, stray character breaking the number regex). Rather than
+    // fall back to a clearly-wrong grabbed value (or an implausible one where
+    // the "subtotal" is empty or >= the total, which a real before-VAT figure
+    // can never be), derive it directly from the fixed 7% VAT rate — this is
+    // a hard constraint of the document, not a guess.
+    if(isNaN(subtotalNum) || subtotalNum <= 0 || subtotalNum >= totalNum){
+      return (Math.round(expected*100)/100).toFixed(2);
+    }
+    return subtotal;
+  }
+  function extractCpallAmounts(rawText){
+    let subtotal = extractAmountFuzzy(rawText, ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม'], 0.82)
+      || extractAmountForward(rawText, ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม','ก่อนภาษีมูลค่าเพิ่ม'], 30);
+    let total = extractAmountFuzzy(rawText, ['รวมเงินทั้งสิ้น'], 0.82)
+      || extractAmountForward(rawText, ['รวมเงินทั้งสิ้น'], 30);
+    const all = extractAllAmounts(rawText);
+    if(!total && all.length>=1) total = all[all.length-1];
+    if(!subtotal && all.length>=4) subtotal = all[all.length-4];
+    subtotal = correctSubtotalWithVatMath(subtotal, total, all);
+    return { subtotal, total };
+  }
+  function extractExcelFields(rawText){
+    const amounts = extractCpallAmounts(rawText);
+    return {
+      invoiceNo: extractInvoiceNo(rawText),
+      date: extractInvoiceDate(rawText),
+      branchCode: extractBranchCode(rawText),
+      subtotal: amounts.subtotal,
+      total: amounts.total
+    };
+  }
+  function dateOnOrBefore(d, endStr){
+    if(!endStr) return true;
+    if(!d) return false;
+    const e = new Date(endStr+'T23:59:59');
+    return d.getTime() <= e.getTime();
+  }
+
+  // ---------- annotated image ----------
+  function drawAnnotations(canvas, boxes){
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width; copy.height = canvas.height;
+    const ctx = copy.getContext('2d');
+    ctx.drawImage(canvas, 0, 0);
+    for(const b of boxes){
+      if(!b.bbox) continue;
+      const {x0,y0,x1,y1} = b.bbox;
+      ctx.fillStyle = b.fill; ctx.fillRect(x0,y0,x1-x0,y1-y0);
+      ctx.strokeStyle = b.stroke; ctx.lineWidth = 2.5; ctx.strokeRect(x0,y0,x1-x0,y1-y0);
+    }
+    return copy.toDataURL('image/png');
+  }
+  const COLORS = {
+    ok:     { fill:'rgba(47,107,79,0.30)',  stroke:'rgba(47,107,79,0.95)' },
+    warn:   { fill:'rgba(156,107,20,0.30)', stroke:'rgba(156,107,20,0.95)' },
+    tax:    { fill:'rgba(42,92,138,0.30)',  stroke:'rgba(42,92,138,0.95)' },
+    issuer: { fill:'rgba(122,68,158,0.30)', stroke:'rgba(122,68,158,0.95)' }
+  };
+
+  // ---------- pdf -> canvases ----------
+  // Grayscale + contrast stretch before OCR — thin/faint printed characters
+  // (small punctuation, close-set digits like postal codes) read more
+  // reliably once contrast is boosted, since Tesseract is sensitive to
+  // stroke definition on low-DPI scans.
+  // Crops the lower portion of the page (where the ink stamp lives) from the
+  // ORIGINAL colour canvas — before preprocessForOCR's grayscale/contrast
+  // pass runs — and binarizes it with a colour threshold: any ink (red/blue/
+  // purple stamp pigment, not just black) becomes solid black text on white,
+  // paper background becomes white. The stamp is handwritten/inked and often
+  // faint or coloured, which the whole-page grayscale+contrast pass isn't
+  // tuned for, so the main OCR pass frequently can't read it even though the
+  // rest of the printed page comes through fine. This crop gets its own
+  // dedicated OCR pass so the branch code can be read from the stamp
+  // specifically, independent of how well the body text OCR'd.
+  function makeStampCrop(canvas){
+    const w = canvas.width, h = canvas.height, y0 = Math.floor(h*0.62);
+    const cw = w, ch = h - y0;
+    if(ch <= 0) return null;
+    const crop = document.createElement('canvas');
+    crop.width = cw; crop.height = ch;
+    const cctx = crop.getContext('2d');
+    cctx.drawImage(canvas, 0, y0, cw, ch, 0, 0, cw, ch);
+    const img = cctx.getImageData(0, 0, cw, ch);
+    const d = img.data;
+    // Sample the crop to estimate the paper (background) brightness, then
+    // set a threshold below it — this adapts to scans of different exposure
+    // instead of assuming a fixed paper white.
+    const samples = [];
+    for(let i=0; i<d.length; i+=37){ samples.push(Math.min(d[i], d[i+1], d[i+2])); }
+    samples.sort((a,b)=>a-b);
+    const paper = samples[Math.floor(samples.length*0.9)] ?? 240;
+    const thr = Math.max(60, paper - 55);
+    for(let i=0; i<d.length; i+=4){
+      const v = Math.min(d[i], d[i+1], d[i+2]) < thr ? 0 : 255;
+      d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
+    }
+    cctx.putImageData(img, 0, 0);
+    // Upscale 2x after binarizing (not before — scaling first would just
+    // blur the threshold edges back out). The stamp's digits are small
+    // relative to the rest of the page, so more pixels-per-character here
+    // gives Tesseract noticeably more to work with.
+    const big = document.createElement('canvas');
+    big.width = cw*2; big.height = ch*2;
+    const bctx = big.getContext('2d');
+    bctx.imageSmoothingEnabled = false;
+    bctx.drawImage(crop, 0, 0, cw*2, ch*2);
+    return big;
+  }
+  function preprocessForOCR(canvas){
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    const contrast = 1.35;
+    for(let i=0; i<d.length; i+=4){
+      const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      let v = (gray - 128) * contrast + 128;
+      v = v < 0 ? 0 : v > 255 ? 255 : v;
+      d[i] = d[i+1] = d[i+2] = v;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+  async function pdfToCanvases(arrayBuffer){
+    const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+    const canvases = [];
+    for(let p=1; p<=pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      // Bumped from 2.4 -> 3.2: sharper input generally means fewer
+      // dropped/merged characters, especially on dense number groups
+      // (postal codes, tax IDs) and short words like "เขต".
+      const viewport = page.getViewport({scale: 3.2});
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({canvasContext: ctx, viewport}).promise;
+      canvas.stampCrop = makeStampCrop(canvas);
+      preprocessForOCR(canvas);
+      canvases.push(canvas);
+    }
+    return canvases;
+  }
+  async function getWorker(onLog){
+    if(worker) return worker;
+    const { createWorker } = Tesseract;
+    worker = await createWorker('tha+eng', 1, { logger: onLog });
+    return worker;
+  }
+  function getRequiredWords(){
+    return els.refText.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
+  }
+
+  // ---------- main run ----------
+  els.runBtn.addEventListener('click', async () => {
+    if(queuedFiles.length === 0) return;
+    els.runBtn.disabled = true;
+    allBills = [];
+    els.resultsHolder.innerHTML = '';
+    els.resultsToolbar.style.display = 'none';
+    els.copySection.style.display = 'none';
+    els.exportBtn.disabled = true;
+
+    const addressWords = getRequiredWords();
+    const nameWords = els.customerNameInput.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
+    const issuerAddrWords = els.issuerAddrInput.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
+    const customerTaxId = els.taxIdInput.value.replace(/\D/g,'');
+    const issuerTaxId = els.issuerTaxIdInput.value.replace(/\D/g,'');
+    const dateEnd = els.dateEndInput.value;
+    const files = queuedFiles.slice();
+
+    let totalPages = 0, doneUnits = 0;
+    const filePages = [];
+    for(const f of files){
+      els.statusLine.textContent = `กำลังเปิดไฟล์ ${f.name}...`;
+      const buf = await f.arrayBuffer();
+      const canvases = await pdfToCanvases(buf);
+      filePages.push({ file: f, canvases });
+      totalPages += canvases.length;
+    }
+
+    els.statusLine.textContent = 'กำลังเตรียมโมดูล OCR ภาษาไทย (ครั้งแรกอาจใช้เวลาสักครู่)...';
+    const w = await getWorker(m => {
+      if(m.status === 'recognizing text' && typeof m.progress === 'number'){
+        const unitFrac = (doneUnits + m.progress) / Math.max(totalPages,1);
+        els.progressFill.style.width = Math.round(unitFrac*100) + '%';
+      }
+    });
+
+    for(const entry of filePages){
+      for(let p=0; p<entry.canvases.length; p++){
+        els.statusLine.textContent = `กำลังอ่าน: ${entry.file.name} — หน้า ${p+1}/${entry.canvases.length}`;
+        const canvas = entry.canvases[p];
+        let data;
+        try{
+          const res = await w.recognize(canvas, {}, { text:true, blocks:true });
+          data = res.data;
+        }catch(e){
+          const res = await w.recognize(canvas);
+          data = res.data;
+        }
+        const rawText = data.text || '';
+        const tessWords = extractTessWords(data);
+
+        const issuerTaxR = approxFindChars(issuerTaxId, rawText.replace(/\D/g,''));
+        const issuerTaxBBox = tessWords.length ? findBboxDigits(issuerTaxId, tessWords) : null;
+        const issuerAddrResults = issuerAddrWords.map(w2 => matchWord(w2, rawText, tessWords));
+        const issuerAddrAvg = issuerAddrResults.length ? issuerAddrResults.reduce((s,x)=>s+x.score,0)/issuerAddrResults.length : 1;
+        const branchLabelR = approxFindChars('สาขาที่ออกใบกำกับภาษี', rawText);
+        const isCPAll = issuerTaxR.score >= 0.85 && issuerAddrAvg >= 0.6 && branchLabelR.score >= 0.6;
+
+        const customerSection = extractCustomerSection(rawText, customerTaxId);
+        const customerSectionMasked = maskKnownDigits(customerSection, customerTaxId);
+
+        const nameResults = nameWords.map(w2 => matchWord(w2, customerSectionMasked, tessWords));
+        // Generic corporate-suffix words ("จำกัด", "(มหาชน)") are boilerplate present
+        // on almost every Thai company name — they carry little identifying value but
+        // are short/awkward for OCR, so a single bad read on one of them shouldn't be
+        // able to sink the whole name average and flip the doc to "ตัด VAT". They're
+        // weighted down instead of dropped, so a fully-garbled suffix still costs
+        // something, but the "core" identifying words (company name itself) dominate.
+        const isSuffixWord = (w) => /^\(?(มหาชน|จำกัด)\)?[.,]?$/.test(canonicalizeText(w).trim());
+        const nameWeights = nameResults.map((r,i) => isSuffixWord(nameWords[i]) ? 0.3 : 1);
+        const nameWeightSum = nameWeights.reduce((s,x)=>s+x,0) || 1;
+        const nameAvg = nameResults.length
+          ? nameResults.reduce((s,x,i)=>s+x.score*nameWeights[i],0)/nameWeightSum
+          : 1;
+        const namePass = nameAvg >= 0.90;
+
+        const wordResults = addressWords.map(w2 => {
+          const r = matchWord(w2, customerSectionMasked, tessWords);
+          return { word: w2, score: r.score, match: r.match, bbox: r.bbox, status: classify(w2, r.score) };
+        });
+        const addrAvg = wordResults.length ? wordResults.reduce((s,x)=>s+x.score,0)/wordResults.length : 1;
+        const addrPass = addrAvg >= 0.85;
+
+        const digitsOnly = rawText.replace(/\D/g,'');
+        const custR = customerTaxId ? approxFindChars(customerTaxId, digitsOnly) : {score:1, match:''};
+        const custBBox = customerTaxId && tessWords.length ? findBboxDigits(customerTaxId, tessWords) : null;
+        const custPass = custR.score >= 0.9;
+
+        const addressOk = isCPAll && namePass && addrPass && custPass;
+
+        const excel = extractExcelFields(rawText);
+        // Dedicated OCR pass on the colour-thresholded stamp crop — the main
+        // page OCR often can't read the inked stamp even when it nails the
+        // printed text, so branch code gets a second, stamp-specific chance
+        // here and takes priority over whatever extractExcelFields found in
+        // the body text. The branch code stamp always reads "รหัสสาขา SC
+        // ####" or "รหัสสาขา CC####" — the S/C letter prefix is part of the
+        // code, not noise. A whitelist of digits only (tried previously)
+        // forces Tesseract to snap every "S" to the nearest digit shape,
+        // which is "5" — exactly the "5 that's actually S" misread this is
+        // fixing. Restricting to just S, C and digits keeps the same
+        // confusion-reduction benefit (no stray letters from paper texture)
+        // without destroying the one letter that's actually meaningful.
+        if(canvas.stampCrop){
+          try{
+            await w.setParameters({ tessedit_char_whitelist: 'SC0123456789' });
+            const stampRes = await w.recognize(canvas.stampCrop);
+            const stampText = stampRes.data.text || '';
+            // Both known branch-code prefixes ("SC", "CC") end in "C", so
+            // try the full two-letter prefix first, and fall back to a
+            // single surviving letter (+ implied "C") if OCR dropped one.
+            const full = stampText.match(/(SC|CC)\s?([0-9]{3,6})/);
+            if(full){
+              excel.branchCode = full[1] + ' ' + full[2];
+            } else {
+              const single = stampText.match(/(S|C)\s?([0-9]{3,6})/);
+              if(single) excel.branchCode = single[1] + 'C ' + single[2];
+              else{
+                const digitRun = stampText.match(/\d{3,6}/);
+                if(digitRun) excel.branchCode = digitRun[0];
+              }
+            }
+          }catch(e){ console.warn('stamp OCR failed', e); }
+          finally{
+            try{ await w.setParameters({ tessedit_char_whitelist: '' }); }catch(e){}
+          }
+        }
+        const inRange = dateOnOrBefore(excel.date, dateEnd);
+        const useIncludeVat = addressOk && inRange;
+        const chosenAmount = useIncludeVat ? excel.total : excel.subtotal;
+
+        const overallScore = (issuerTaxR.score*0.10) + (issuerAddrAvg*0.10) + (nameAvg*0.40) + (addrAvg*0.25) + (custR.score*0.15);
+
+        allBills.push({
+          file: entry.file.name, page: p+1, totalPagesInFile: entry.canvases.length,
+          isCPAll, issuerTaxR, issuerTaxBBox, issuerAddrAvg, branchLabelR,
+          nameResults, nameAvg, namePass, wordResults, addrAvg, addrPass,
+          custR, custBBox, custPass,
+          addressOk, inRange, useIncludeVat, chosenAmount,
+          overallScore, isCopy: detectCopy(rawText),
+          excel, rawText, canvas, hasTessWords: tessWords.length > 0
+        });
+
+        doneUnits += 1;
+        els.progressFill.style.width = Math.round((doneUnits/Math.max(totalPages,1))*100) + '%';
+      }
+    }
+
+    els.statusLine.textContent = `เสร็จสิ้น — ตรวจแล้ว ${allBills.length} บิล จาก ${files.length} ไฟล์`;
+    renderTable();
+    renderCopySection();
+    els.exportBtn.disabled = allBills.length === 0;
+    els.runBtn.disabled = false;
+  });
+
+  els.failOnlyToggle.addEventListener('change', renderTable);
+
+  function scoreTier(pct, threshold){
+    if(pct >= 90) return 'ok';
+    if(pct >= threshold) return 'warn';
+    return 'bad';
+  }
+
+  function renderTable(){
+    els.resultsHolder.innerHTML = '';
+    if(allBills.length === 0){
+      els.resultsHolder.appendChild(els.emptyState);
+      els.resultsToolbar.style.display = 'none';
+      return;
+    }
+    els.resultsToolbar.style.display = 'flex';
+    const threshold = Math.max(0, Math.min(100, Number(els.threshold.value) || 0));
+    const failOnly = els.failOnlyToggle.checked;
+
+    // Keep natural page order (the order files/pages were processed in) —
+    // allBills is already built that way — rather than re-sorting by score,
+    // so the table lines up with the actual PDF page sequence.
+    const rows = allBills.map((b, idx) => ({ ...b, idx, pct: b.overallScore*100 }))
+      .filter(b => !failOnly || b.pct < threshold);
+
+    const passCount = allBills.filter(b => b.overallScore*100 >= threshold).length;
+    const cpAllCount = allBills.filter(b => b.isCPAll).length;
+    els.summaryText.textContent = `ผ่านเกณฑ์ ${passCount}/${allBills.length} บิล · เป็นเอกสาร CP ALL ${cpAllCount}/${allBills.length}`;
+
+    if(rows.length === 0){
+      const div = document.createElement('div');
+      div.className = 'empty-state';
+      div.textContent = failOnly ? 'ไม่มีบิลที่ต่ำกว่าเกณฑ์ — ทุกรายการผ่านหมด' : 'ไม่มีข้อมูล';
+      els.resultsHolder.appendChild(div);
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'results-table';
+    table.innerHTML = `<thead><tr>
+      <th style="width:26px;">#</th><th>ไฟล์</th><th style="width:65px;">เลขสาขา</th>
+      <th style="width:60px;">CP ALL</th>
+      <th style="width:75px;">ชื่อลูกค้า</th><th style="width:80px;">ที่อยู่ถูกต้อง</th>
+      <th style="width:75px;">ในกำหนดวันที่</th><th style="width:80px;">ยอดที่ใช้</th>
+      <th style="width:90px;">ประเภทยอด</th><th style="width:60px;">% ตรง</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    rows.forEach((b, i) => {
+      const tier = scoreTier(b.pct, threshold);
+      const tr = document.createElement('tr');
+      tr.className = 'clickable' + (tier === 'bad' ? ' row-fail' : tier === 'warn' ? ' row-warn' : '');
+      tr.innerHTML = `
+        <td class="mono">${i+1}</td>
+        <td>${escapeHtml(b.file)}${b.isCopy ? ' <span class="pill copy">สำเนา</span>' : ''}</td>
+        <td class="mono">${escapeHtml(b.excel.branchCode||'—')}</td>
+        <td>${b.isCPAll ? '✅' : '❌'}</td>
+        <td>${b.namePass ? '✅' : '❌'}</td>
+        <td>${b.addressOk ? '✅' : '❌'}</td>
+        <td>${b.inRange ? '✅' : '❌'}</td>
+        <td class="mono">${escapeHtml(b.chosenAmount || '—')}</td>
+        <td>${b.useIncludeVat ? '<span class="pill ok">รวม VAT</span>' : '<span class="pill warn">ตัด VAT</span>'}</td>
+        <td><span class="score-num ${tier}">${b.pct.toFixed(0)}%</span></td>
+      `;
+      const detailTr = document.createElement('tr');
+      detailTr.className = 'detail-row';
+      detailTr.style.display = 'none';
+      const detailTd = document.createElement('td');
+      detailTd.colSpan = 10;
+      detailTd.appendChild(buildDetailEl(b));
+      detailTr.appendChild(detailTd);
+      tr.addEventListener('click', () => { detailTr.style.display = detailTr.style.display === 'none' ? '' : 'none'; });
+      tbody.appendChild(tr);
+      tbody.appendChild(detailTr);
+    });
+    table.appendChild(tbody);
+    els.resultsHolder.appendChild(table);
+  }
+
+  function renderCopySection(){
+    const copies = allBills.filter(b => b.isCopy);
+    if(copies.length === 0){ els.copySection.style.display = 'none'; return; }
+    els.copySection.style.display = 'block';
+    els.copyCount.textContent = copies.length + ' ฉบับ';
+    els.copyHolder.innerHTML = '';
+    const table = document.createElement('table');
+    table.className = 'results-table';
+    table.innerHTML = `<thead><tr><th style="width:30px;">#</th><th>ไฟล์</th><th style="width:70px;">หน้า</th><th style="width:90px;">% ตรง</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+    copies.forEach((b,i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="mono">${i+1}</td><td>${escapeHtml(b.file)}</td><td class="mono">${b.page}/${b.totalPagesInFile}</td><td class="mono">${(b.overallScore*100).toFixed(1)}%</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    els.copyHolder.appendChild(table);
+  }
+
+  function buildDetailEl(b){
+    const wrap = document.createElement('div');
+    wrap.className = 'detail-inner';
+
+    const learnNote = document.createElement('div');
+    learnNote.className = 'learn-note';
+    learnNote.textContent = 'กด ✓ ถ้าคำนี้จริงๆถูกต้อง (ระบบจะจำไว้ถาวรในเบราว์เซอร์นี้) หรือ ✗ ถ้าจับคู่มาผิด (ระบบจะเลิกจับคู่แบบนี้ถาวรเช่นกัน)';
+    wrap.appendChild(learnNote);
+
+    const annotTitle = document.createElement('div');
+    annotTitle.className = 'detail-section-title';
+    annotTitle.textContent = 'ตำแหน่งบนภาพเอกสาร';
+    wrap.appendChild(annotTitle);
+    const annotWrap = document.createElement('div');
+    annotWrap.className = 'annot-wrap';
+    const showBtn = document.createElement('button');
+    showBtn.className = 'small';
+    showBtn.textContent = 'แสดงภาพพร้อมกรอบตำแหน่ง';
+    const imgHolder = document.createElement('div');
+    showBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      imgHolder.innerHTML = '';
+      const boxes = [];
+      b.wordResults.forEach(f => {
+        if(!f.bbox) return;
+        if(f.status === 'ตรง') boxes.push({bbox:f.bbox, ...COLORS.ok});
+        else if(f.status === 'สะกดผิด/ใกล้เคียง') boxes.push({bbox:f.bbox, ...COLORS.warn});
+      });
+      b.nameResults.forEach(f => { if(f.bbox) boxes.push({bbox:f.bbox, ...(f.score>=0.9?COLORS.ok:COLORS.warn)}); });
+      if(b.custBBox) boxes.push({bbox:b.custBBox, ...COLORS.tax});
+      if(b.issuerTaxBBox) boxes.push({bbox:b.issuerTaxBBox, ...COLORS.issuer});
+      const url = drawAnnotations(b.canvas, boxes);
+      const img = document.createElement('img'); img.src = url;
+      imgHolder.appendChild(img);
+      const legend = document.createElement('div');
+      legend.className = 'annot-legend';
+      legend.innerHTML = `
+        <span><span class="legend-sw" style="background:${COLORS.ok.stroke}"></span>ตรง</span>
+        <span><span class="legend-sw" style="background:${COLORS.warn.stroke}"></span>สะกดผิด/ใกล้เคียง</span>
+        <span><span class="legend-sw" style="background:${COLORS.tax.stroke}"></span>เลขผู้เสียภาษีลูกค้า</span>
+        <span><span class="legend-sw" style="background:${COLORS.issuer.stroke}"></span>เลขผู้เสียภาษีผู้ออก</span>
+      `;
+      imgHolder.appendChild(legend);
+      if(!b.hasTessWords){
+        const note = document.createElement('div');
+        note.className = 'annot-note';
+        note.textContent = 'หมายเหตุ: ไม่พบข้อมูลตำแหน่งคำจาก OCR สำหรับหน้านี้ — แสดงเฉพาะภาพเอกสารโดยไม่มีกรอบสี';
+        imgHolder.appendChild(note);
+      }
+    };
+    annotWrap.appendChild(showBtn);
+    annotWrap.appendChild(imgHolder);
+    wrap.appendChild(annotWrap);
+
+    const iTitle = document.createElement('div');
+    iTitle.className = 'detail-section-title';
+    iTitle.textContent = 'ผู้ออกใบเสร็จ (CP ALL) — เช็คแบบ "มีครบไหม"';
+    wrap.appendChild(iTitle);
+    const iList = document.createElement('div');
+    iList.className = 'field-list';
+    iList.innerHTML = `
+      <div class="field-item"><div class="fname">มีเลขผู้เสียภาษีผู้ออก</div><div class="fmatch">${escapeHtml(b.issuerTaxR.match||'—')}</div><div class="fscore score-num ${b.issuerTaxR.score>=0.85?'ok':'bad'}">${(b.issuerTaxR.score*100).toFixed(0)}%</div><div></div></div>
+      <div class="field-item"><div class="fname">มีที่อยู่ผู้ออก</div><div class="fmatch">เฉลี่ย ${(b.issuerAddrAvg*100).toFixed(0)}%</div><div class="fscore score-num ${b.issuerAddrAvg>=0.6?'ok':'bad'}">${(b.issuerAddrAvg*100).toFixed(0)}%</div><div></div></div>
+      <div class="field-item"><div class="fname">มี "สาขาที่ออกใบกำกับภาษี"</div><div class="fmatch">${escapeHtml(b.branchLabelR.match||'—')}</div><div class="fscore score-num ${b.branchLabelR.score>=0.6?'ok':'bad'}">${(b.branchLabelR.score*100).toFixed(0)}%</div><div></div></div>
+      <div class="field-item"><div class="fname">เลขสาขาที่อ่านได้</div><div class="fmatch">${escapeHtml(b.excel.branchCode||'— ไม่พบ —')}</div><div class="fscore score-num ${b.excel.branchCode?'ok':'bad'}">${b.excel.branchCode?'100':'0'}%</div><div></div></div>
+    `;
+    wrap.appendChild(iList);
+
+    const nTitle = document.createElement('div');
+    nTitle.className = 'detail-section-title';
+    nTitle.textContent = 'ชื่อผู้ซื้อสินค้า (น้ำหนักคะแนนสูงสุด)';
+    wrap.appendChild(nTitle);
+    const nList = document.createElement('div');
+    nList.className = 'field-list';
+    b.nameResults.forEach(f => {
+      const tier = f.score>=0.95?'ok':f.score>=0.75?'warn':'bad';
+      const row = document.createElement('div');
+      row.className = 'field-item';
+      row.innerHTML = `<div class="fname"></div><div class="fmatch">${f.match?escapeHtml(f.match):'<span style="color:var(--seal)">— ไม่พบ —</span>'}</div><div class="fscore score-num ${tier}">${(f.score*100).toFixed(0)}%</div><div></div>`;
+      nList.appendChild(row);
+    });
+    wrap.appendChild(nList);
+
+    const wTitle = document.createElement('div');
+    wTitle.className = 'detail-section-title';
+    wTitle.textContent = 'ที่อยู่ลูกค้า (คำที่ต้องมี)';
+    wrap.appendChild(wTitle);
+    const fieldList = document.createElement('div');
+    fieldList.className = 'field-list';
+    b.wordResults.forEach(f => {
+      const tier = f.score>=0.95?'ok':f.score>=0.75?'warn':'bad';
+      const row = document.createElement('div');
+      row.className = 'field-item';
+      row.innerHTML = `
+        <div class="fname">${escapeHtml(f.word)}</div>
+        <div class="fmatch">${f.match ? escapeHtml(f.match) : '<span style="color:var(--seal)">— ไม่พบ —</span>'} <span style="color:var(--ink-soft)">(${escapeHtml(f.status)})</span></div>
+        <div class="fscore score-num ${tier}">${(f.score*100).toFixed(0)}%</div>
+        <div class="fbtns"></div>
+      `;
+      const btns = row.querySelector('.fbtns');
+      const okBtn = document.createElement('button');
+      okBtn.className = 'small'; okBtn.textContent = '✓ ถูก';
+      okBtn.onclick = (ev) => { ev.stopPropagation(); if(f.match) markAlias(f.word, f.match); okBtn.classList.add('active-ok'); };
+      const badBtn = document.createElement('button');
+      badBtn.className = 'small'; badBtn.textContent = '✗ ผิด';
+      badBtn.onclick = (ev) => { ev.stopPropagation(); if(f.match) markReject(f.word, f.match); badBtn.classList.add('active-bad'); };
+      btns.appendChild(okBtn); btns.appendChild(badBtn);
+      fieldList.appendChild(row);
+    });
+    wrap.appendChild(fieldList);
+
+    const eTitle = document.createElement('div');
+    eTitle.className = 'detail-section-title';
+    eTitle.textContent = 'ข้อมูลยอดเงิน';
+    wrap.appendChild(eTitle);
+    const excelPrev = document.createElement('div');
+    excelPrev.className = 'excel-preview';
+    const ex = b.excel;
+    excelPrev.innerHTML = `
+      <div class="cell"><div class="k">เลขที่ใบเสร็จ</div><div class="v">${escapeHtml(ex.invoiceNo||'—')}</div></div>
+      <div class="cell"><div class="k">วันที่เอกสาร</div><div class="v">${ex.date ? ex.date.toISOString().slice(0,10) : '—'}</div></div>
+      <div class="cell"><div class="k">เลขสาขา</div><div class="v">${escapeHtml(ex.branchCode||'—')}</div></div>
+      <div class="cell"><div class="k">ก่อน VAT</div><div class="v">${escapeHtml(ex.subtotal||'—')}</div></div>
+      <div class="cell"><div class="k">รวมทั้งสิ้น</div><div class="v">${escapeHtml(ex.total||'—')}</div></div>
+      <div class="cell hl"><div class="k">ยอดที่เลือกใช้</div><div class="v">${escapeHtml(b.chosenAmount||'—')} (${b.useIncludeVat?'รวม VAT':'ตัด VAT'})</div></div>
+    `;
+    wrap.appendChild(excelPrev);
+
+    const raw = document.createElement('details');
+    raw.className = 'raw';
+    raw.innerHTML = `<summary>ดูข้อความทั้งหมดที่ OCR อ่านได้จากหน้านี้</summary><pre>${escapeHtml(b.rawText.trim())}</pre>`;
+    wrap.appendChild(raw);
+
+    return wrap;
+  }
+
+  els.exportBtn.addEventListener('click', () => {
+    if(allBills.length === 0) return;
+    const summaryRows = allBills.filter(b=>b.isCPAll).map(b => ({
+      'ใบที่': b.excel.invoiceNo || '',
+      'เลขสาขา': b.excel.branchCode || '',
+      'ยอดเงิน': b.chosenAmount || ''
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, 'สรุป');
+
+    const detailRows = allBills.map(b => ({
+      'ไฟล์': b.file, 'หน้า': b.page,
+      'เป็นเอกสาร CP ALL': b.isCPAll ? 'ใช่' : 'ไม่ใช่',
+      'ประเภทเอกสาร': b.isCopy ? 'สำเนา' : 'ต้นฉบับ',
+      'ใบที่': b.excel.invoiceNo || '',
+      'เลขสาขา': b.excel.branchCode || '',
+      'วันที่เอกสาร': b.excel.date ? b.excel.date.toISOString().slice(0,10) : '',
+      'ชื่อลูกค้าถูกต้อง': b.namePass ? 'ใช่' : 'ไม่ใช่',
+      'ที่อยู่ลูกค้าถูกต้อง': b.addressOk ? 'ใช่' : 'ไม่ใช่',
+      'อยู่ในกำหนดวันที่': b.inRange ? 'ใช่' : 'ไม่ใช่',
+      'ก่อน VAT': b.excel.subtotal || '',
+      'รวมทั้งสิ้น': b.excel.total || '',
+      'ยอดที่เลือกใช้': b.chosenAmount || '',
+      'ประเภทยอด': b.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
+      '% ตรง': (b.overallScore*100).toFixed(1)
+    }));
+    const ws2 = XLSX.utils.json_to_sheet(detailRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'รายละเอียด');
+
+    const statsRows = [
+      { 'รายการ': 'ยืนยันว่าถูกต้อง (✓)', 'จำนวนครั้ง': feedback.stats.confirm },
+      { 'รายการ': 'แก้ไขว่าจับคู่ผิด (✗)', 'จำนวนครั้ง': feedback.stats.reject },
+      { 'รายการ': 'รวมทั้งหมด (สะสมตลอดการใช้งาน)', 'จำนวนครั้ง': feedback.stats.confirm + feedback.stats.reject }
+    ];
+    const ws3 = XLSX.utils.json_to_sheet(statsRows);
+    XLSX.utils.book_append_sheet(wb, ws3, 'สถิติการเทรน');
+
+    XLSX.writeFile(wb, 'cpall_invoice_results.xlsx');
+  });
+
+  loadFeedback();
+})();
+</script>
+</body>
+</html>
