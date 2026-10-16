@@ -780,22 +780,6 @@
     }
     return best >= 0.6 ? bestBBox : null;
   }
-  function makeCropFromBBox(canvas, bbox, padding){
-    if(!bbox) return null;
-    const pad = padding||4;
-    const x0 = Math.max(0, Math.floor(bbox.x0)-pad);
-    const y0 = Math.max(0, Math.floor(bbox.y0)-pad);
-    const x1 = Math.min(canvas.width, Math.ceil(bbox.x1)+pad);
-    const y1 = Math.min(canvas.height, Math.ceil(bbox.y1)+pad);
-    const cw = x1-x0, ch = y1-y0;
-    if(cw<=0 || ch<=0) return null;
-    const crop = document.createElement('canvas');
-    crop.width = cw*2; crop.height = ch*2;
-    const cctx = crop.getContext('2d');
-    cctx.imageSmoothingEnabled = false;
-    cctx.drawImage(canvas, x0, y0, cw, ch, 0, 0, cw*2, ch*2);
-    return crop;
-  }
   function matchWord(word, rawText, tessWords){
     const aliasList = feedback.aliases[word] || [];
     const hStripped = stripSpace(canonicalizeText(rawText));
@@ -822,7 +806,21 @@
   // ---------- excel field extraction ----------
   function extractInvoiceNo(rawText){
     const m = rawText.match(/เลขที่\s*[:：]?\s*([A-Za-z0-9]{5,20})/);
-    return m ? m[1].trim() : '';
+    if(!m) return '';
+    let val = m[1].trim();
+    // CP ALL's printed "เลขที่" (invoice/document number) always starts with
+    // the letter "S" in practice — confirmed against several different real
+    // receipts where it OCR's as a plain "5" instead (the same S/5 font
+    // ambiguity fixed on the branch-code stamp, just more consistently
+    // misread here since Tesseract is very confident on this clean print
+    // font). A dedicated second OCR pass on just this cropped token, tried
+    // twice, still came back "5" both times — the base recognizer itself is
+    // confident on the wrong character, not merely under-constrained — so
+    // this is corrected directly instead of through another OCR attempt.
+    if(/^5\d{9,19}$/.test(val)){
+      val = 'S' + val.slice(1);
+    }
+    return val;
   }
   function extractInvoiceDate(rawText){
     const m = rawText.match(/วันที่\s*[:：]?\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -1247,45 +1245,11 @@
         const addressOk = isCPAll && namePass && addrPass && custPass;
 
         const excel = extractExcelFields(rawText);
-        // Dedicated OCR pass on just the invoice/document number token — the
-        // same S/5 misread Tesseract makes on the branch-code stamp also
-        // hits this printed field (confirmed against a real receipt where a
-        // printed "S043886910010001" came back as "5043886910010001" from
-        // the main pass). Locate the token by matching the DIGITS already
-        // extracted (findBboxDigits — tolerant of the single ambiguous
-        // leading character via its LCS-based similarity over the full ~15
-        // digit run) rather than by searching for the "เลขที่" label itself,
-        // since that label also appears a second time further down the page
-        // (the "...อย่างย่อเลขที่ : ..." cancellation line) and a fuzzy label
-        // search could lock onto the wrong occurrence. Then re-OCR that crop
-        // with a whitelist that keeps both digits and S, so Tesseract isn't
-        // forced to snap an ambiguous S-shape to the nearest digit. Only
-        // trusted if the digit tail still matches the main pass's read —
-        // otherwise the crop may have grabbed the wrong token, and the
-        // original stays safer to keep.
-        if(excel.invoiceNo && tessWords.length){
-          const origDigits = excel.invoiceNo.replace(/^[A-Za-z]/,'');
-          const invBBox = origDigits.length>=6 ? findBboxDigits(origDigits, tessWords) : null;
-          const invCrop = makeCropFromBBox(canvas, invBBox, 6);
-          if(invCrop){
-            try{
-              await w.setParameters({ tessedit_char_whitelist: 'S0123456789' });
-              const invRes = await w.recognize(invCrop);
-              const invText = (invRes.data.text||'').trim();
-              const m = invText.match(/S?\d{6,20}/i);
-              if(m){
-                const refined = m[0].toUpperCase();
-                const refinedDigits = refined.replace(/^S/,'');
-                if(similarityRatio(refinedDigits, origDigits) >= 0.85){
-                  excel.invoiceNo = refined;
-                }
-              }
-            }catch(e){ console.warn('invoice no OCR failed', e); }
-            finally{
-              try{ await w.setParameters({ tessedit_char_whitelist: '' }); }catch(e){}
-            }
-          }
-        }
+        // (invoiceNo's leading S/5 fix lives directly in extractInvoiceNo —
+        // a dedicated second OCR pass on the cropped token was tried here
+        // and removed: it still came back "5" even with a whitelist
+        // restricted to "S0123456789", so another OCR attempt wasn't the
+        // fix this field needed.)
         // Dedicated OCR pass on the colour-thresholded stamp crop — the main
         // page OCR often can't read the inked stamp even when it nails the
         // printed text, so branch code gets a second, stamp-specific chance
