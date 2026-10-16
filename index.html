@@ -488,46 +488,51 @@
     // rather than beside the file/invoice identifiers, per how the user
     // actually reads this sheet (identify + amount first, correctness
     // checks last).
+    // "เป็นเอกสาร CP ALL" dropped (every row on this sheet already is one —
+    // it's a filter, not something worth a column), and "ประเภทเอกสาร" /
+    // "อยู่ในกำหนดวันที่" moved to the back alongside the other
+    // pass/fail-style columns, per how the user actually reads this sheet.
     const detailRows = rows.map(r => ({
       'ไฟล์': r.file, 'หน้า': r.page,
-      'เป็นเอกสาร CP ALL': r.isCPAll ? '✅' : '❌',
-      'ประเภทเอกสาร': r.isCopy ? 'สำเนา' : 'ต้นฉบับ',
       'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'วันที่เอกสาร': r.date,
       'รายการสินค้า': r.itemDescription || '',
-      'อยู่ในกำหนดวันที่': r.inRange ? '✅' : '❌',
       'ก่อน VAT': r.subtotal, 'รวมทั้งสิ้น': r.total,
       'ยอดที่เลือกใช้': r.chosenAmount, 'ประเภทยอด': r.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
       '% ตรง': (r.overallScore*100).toFixed(1),
       'รายการตัดVat': r.useIncludeVat ? '' : (r.chosenAmount || ''),
       'ชื่อลูกค้าถูกต้อง': r.namePass ? '✅' : '❌',
-      'ที่อยู่ลูกค้าถูกต้อง': r.addressOk ? '✅' : '❌'
+      'ที่อยู่ลูกค้าถูกต้อง': r.addressOk ? '✅' : '❌',
+      'ประเภทเอกสาร': r.isCopy ? 'สำเนา' : 'ต้นฉบับ',
+      'อยู่ในกำหนดวันที่': r.inRange ? '✅' : '❌'
     }));
     const detailSheet = XLSX.utils.json_to_sheet(detailRows, {
-      header: ['ไฟล์','หน้า','เป็นเอกสาร CP ALL','ประเภทเอกสาร','ใบที่','เลขสาขา','วันที่เอกสาร',
-        'รายการสินค้า','อยู่ในกำหนดวันที่','ก่อน VAT','รวมทั้งสิ้น','ยอดที่เลือกใช้','ประเภทยอด','% ตรง',
-        'รายการตัดVat','ชื่อลูกค้าถูกต้อง','ที่อยู่ลูกค้าถูกต้อง']
+      header: ['ไฟล์','หน้า','ใบที่','เลขสาขา','วันที่เอกสาร',
+        'รายการสินค้า','ก่อน VAT','รวมทั้งสิ้น','ยอดที่เลือกใช้','ประเภทยอด','% ตรง',
+        'รายการตัดVat','ชื่อลูกค้าถูกต้อง','ที่อยู่ลูกค้าถูกต้อง','ประเภทเอกสาร','อยู่ในกำหนดวันที่']
     });
     XLSX.utils.book_append_sheet(wb, detailSheet, 'รายละเอียด');
     // "กรอกเอกสาร" sheet — same column layout as the Cafe Amazon COCO/HANA
     // master data sheet the user works from (CODE / ชื่อร้าน / จำนวนเงิน /
     // รายการ / Note / รายการตัดVat / ผู้จัดการเขต). CODE, ชื่อร้าน and
     // ผู้จัดการเขต are auto-filled from the embedded branch master data
-    // whenever the branch code was matched; anything the lookup can't find
-    // is left blank for the user to fill in from memory, same as they do
-    // today.
+    // whenever the branch code was matched. A branch that isn't in the
+    // master data at all is dropped from this sheet entirely (not left with
+    // blank cells) — this sheet's whole point is auto-filled rows, so an
+    // unmatched one is just noise the user has to delete by hand anyway.
     const fillRows = rows.filter(r=>r.isCPAll).map(r => {
       const digits = String(r.branchCode||'').replace(/\D/g,'');
       const info = lookupBranchInfo(r.branchCode);
+      if(!info) return null;
       return {
         'CODE': digits || '',
-        'ชื่อร้าน': info ? info.name : '',
+        'ชื่อร้าน': info.name,
         'จำนวนเงิน': r.chosenAmount || '',
-        'รายการ': classifyProductLabel(r.file),
+        'รายการ': classifyProduct(r.itemDescription, r.file).label,
         'Note': '',
         'รายการตัดVat': r.useIncludeVat ? '' : (r.chosenAmount || ''),
-        'ผู้จัดการเขต': info ? info.manager : ''
+        'ผู้จัดการเขต': info.manager
       };
-    });
+    }).filter(Boolean);
     const fillSheet = XLSX.utils.json_to_sheet(fillRows, {
       header: ['CODE','ชื่อร้าน','จำนวนเงิน','รายการ','Note','รายการตัดVat','ผู้จัดการเขต']
     });
@@ -1356,25 +1361,20 @@
     return 'bad';
   }
 
-  // Classifies the file as soy milk / milk / soda from its filename — the
-  // user names uploaded PDFs this way on purpose (e.g. "Milk-....pdf",
-  // "soda-....pdf", "Vitamilk-....pdf"), so it's a reliable, cheap signal
-  // without needing to parse OCR item text. Soy/Vitamilk is checked first
-  // since it's a kind of milk and would otherwise also match the plain
-  // "milk"/"นม" pattern.
-  function classifyProductEmoji(fileName){
-    const f = (fileName||'').toLowerCase();
-    if(/vitamilk|ไวตามิล|ถั่วเหลือง|soy/.test(f)) return '🫘';
-    if(/milk|นม/.test(f)) return '🥛';
-    if(/soda|โซดา|ซ่า/.test(f)) return '🥤';
-    return '';
-  }
-  function classifyProductLabel(fileName){
-    const f = (fileName||'').toLowerCase();
-    if(/vitamilk|ไวตามิล|ถั่วเหลือง|soy/.test(f)) return '🫘 ถั่วเหลือง (ไวตามิลค์)';
-    if(/milk|นม/.test(f)) return '🥛 นม';
-    if(/soda|โซดา|ซ่า/.test(f)) return '🥤 โซดา';
-    return '';
+  // Classifies the product — prefers the actual OCR'd item description
+  // (e.g. "โซดาสิงห์ 325 มล. แพ็ค 6") since that's the real evidence of what
+  // was bought, falling back to the filename for files that don't have an
+  // item description (e.g. OCR missed that line) but were named with the
+  // product on purpose (e.g. "Milk-....pdf", "soda-....pdf"). Checked in
+  // order of specificity — Vitamilk/Meiji are themselves a kind of milk, so
+  // they're checked before the generic "นม"/"milk" pattern.
+  function classifyProduct(itemDescription, fileName){
+    const text = ((itemDescription||'') + ' ' + (fileName||'')).toLowerCase();
+    if(/ไวตามิล|vitamilk|ถั่วเหลือง|soy/.test(text)) return { emoji: '🫘', label: 'นมไวตามิล' };
+    if(/เมจิ|meiji/.test(text)) return { emoji: '🥛', label: 'นมเมจิ' };
+    if(/โซดา|soda|ซ่า/.test(text)) return { emoji: '🥤', label: 'โซดา' };
+    if(/นม|milk/.test(text)) return { emoji: '🥛', label: 'นม' };
+    return { emoji: '', label: '' };
   }
   function renderTable(){
     els.resultsHolder.innerHTML = '';
@@ -1422,7 +1422,7 @@
       tr.className = 'clickable' + (tier === 'bad' ? ' row-fail' : tier === 'warn' ? ' row-warn' : '');
       tr.innerHTML = `
         <td class="mono">${i+1}</td>
-        <td style="text-align:center;">${classifyProductEmoji(b.file)}</td>
+        <td style="text-align:center;">${classifyProduct(b.excel.itemDescription, b.file).emoji}</td>
         <td>${escapeHtml(b.file)}${b.isCopy ? ' <span class="pill copy">สำเนา</span>' : ''}</td>
         <td class="mono">${escapeHtml(b.excel.invoiceNo||'—')}</td>
         <td class="mono">${escapeHtml(b.excel.branchCode||'—')}</td>
