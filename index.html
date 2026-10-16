@@ -642,7 +642,7 @@
       const anchorPatterns = [/ชื่อผู้ซื้อ/, /ผู้ซื้อสินค้า/, /ชือผู้ซื้อ/, /ชื่อผู้ซี้อ/];
       for(const p of anchorPatterns){ const i = rawText.search(p); if(i !== -1){ start = i; break; } }
     }
-    if(start === -1) return rawText;
+    if(start === -1) return { primary: rawText, extended: rawText };
     let windowText = rawText.slice(start);
     const endMarkers = ['NO.', 'จำนวน', 'รายการสินค้า', 'ลำดับ'];
     let endIdx = windowText.length;
@@ -658,8 +658,18 @@
     // short. If we land here, something matched where it shouldn't have —
     // fall back to the full page rather than silently reporting "not
     // found" for text that's actually right there in the OCR output.
-    if(result.trim().length < 40) return rawText;
-    return result;
+    const primary = result.trim().length < 40 ? rawText : result;
+    // Second, WIDER text for a per-word fallback: everything from the
+    // customer tax-id onward with no end-marker cut and no length cap. Seen
+    // in practice: Tesseract's reading order sometimes places the last line
+    // of the address (province/postal code, e.g. "จังหวัดกรุงเทพมหานคร
+    // 10900" printed on its own line right after the street address) AFTER
+    // the item table in the raw text stream, even though it's visually
+    // right below the address — which pushes it past the "NO."/"จำนวน" end
+    // marker and out of `primary` entirely. This still starts after the
+    // customer's own tax id, so it can't cross-match the issuer's address
+    // block above it, the one risk section scoping was added to prevent.
+    return { primary, extended: windowText };
   }
   // Also mask out the customer's own tax-id digits from that scoped text
   // before word-matching, so a numeric field like a postal code can't
@@ -1091,9 +1101,23 @@
         const isCPAll = issuerTaxR.score >= 0.85 && issuerAddrAvg >= 0.6 && branchLabelR.score >= 0.6;
 
         const customerSection = extractCustomerSection(rawText, customerTaxId);
-        const customerSectionMasked = maskKnownDigits(customerSection, customerTaxId);
+        const customerSectionMasked = maskKnownDigits(customerSection.primary, customerTaxId);
+        const customerExtendedMasked = maskKnownDigits(customerSection.extended, customerTaxId);
+        // Try the tight, end-marker-trimmed section first (safest against
+        // cross-matching). Only if that scores poorly, retry against the
+        // wider uncapped section (still starts after the customer's own tax
+        // id, so it can't reach back into the issuer's address block) — this
+        // recovers words like the province/postal code when OCR's reading
+        // order pushed them past the item-table end marker. Keep whichever
+        // scored higher.
+        function matchWordWide(word){
+          const a = matchWord(word, customerSectionMasked, tessWords);
+          if(a.score >= 0.55) return a;
+          const b = matchWord(word, customerExtendedMasked, tessWords);
+          return b.score > a.score ? b : a;
+        }
 
-        const nameResults = nameWords.map(w2 => matchWord(w2, customerSectionMasked, tessWords));
+        const nameResults = nameWords.map(w2 => matchWordWide(w2));
         // Generic corporate-suffix words ("จำกัด", "(มหาชน)") are boilerplate present
         // on almost every Thai company name — they carry little identifying value but
         // are short/awkward for OCR, so a single bad read on one of them shouldn't be
@@ -1109,7 +1133,7 @@
         const namePass = nameAvg >= 0.90;
 
         const wordResults = addressWords.map(w2 => {
-          const r = matchWord(w2, customerSectionMasked, tessWords);
+          const r = matchWordWide(w2);
           return { word: w2, score: r.score, match: r.match, bbox: r.bbox, status: classify(w2, r.score) };
         });
         const addrAvg = wordResults.length ? wordResults.reduce((s,x)=>s+x.score,0)/wordResults.length : 1;
