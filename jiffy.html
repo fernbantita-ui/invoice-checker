@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ตรวจสอบใบเสร็จ ปตท.บริหารธุรกิจค้าปลีก (OCR)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EEF4FC; --paper-raised: #FFFFFF;
+    --ink: #13305F; --ink-soft: #52627E; --line: #D3DFEF;
+    --seal: #A8382C; --seal-soft: #F6E3E0;
+    --match: #2F6B4F; --match-soft: #E1EDE5;
+    --amber: #9C6B14; --amber-soft: #F5E9D2;
+    --blue: #1D4FA0; --blue-soft: #E2ECFA;
+    --jiffy-yellow: #FFD100; --jiffy-yellow-soft: #FFF6C7;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(1200px 600px at 100% -10%, rgba(255,209,0,0.16), transparent 60%), radial-gradient(900px 500px at -10% 0%, rgba(29,79,160,0.08), transparent 60%), var(--paper);
+    color:var(--ink); font-family:'Sarabun',sans-serif; font-weight:400; line-height:1.55;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:1360px;margin:0 auto;}
+  header.top{display:flex; align-items:flex-end; justify-content:space-between; gap:20px; border-bottom:4px solid var(--jiffy-yellow); box-shadow:0 2px 0 var(--blue); padding-bottom:18px; margin-bottom:28px; flex-wrap:wrap;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em; color:var(--blue); text-transform:uppercase; margin:0 0 6px;}
+  h1{font-size:24px; font-weight:700; margin:0; letter-spacing:-0.01em;}
+  .top-sub{color:var(--ink-soft); font-size:13.5px; max-width:620px; margin-top:6px;}
+  .privacy-pill{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); background:var(--paper-raised); border-radius:999px; padding:7px 14px; font-size:12.5px; color:var(--ink-soft); white-space:nowrap;}
+  .privacy-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--match);flex:none;}
+
+  .grid{display:grid; grid-template-columns:380px 1fr; gap:24px; align-items:start;}
+  @media (max-width:920px){ .grid{grid-template-columns:1fr;} }
+
+  .panel{background:var(--paper-raised); border:1px solid var(--line); border-radius:10px; padding:18px 20px;}
+  .panel + .panel{margin-top:18px;}
+  .panel{border-top:3px solid var(--jiffy-yellow);}
+  .panel h2{font-size:12.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); margin:0 0 12px; font-weight:600;}
+
+  textarea, input[type=text]{font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.55; border:1px solid var(--line); border-radius:6px; padding:9px 10px; background:#F7FAFE; color:var(--ink); width:100%;}
+  textarea{min-height:70px; resize:vertical;}
+  textarea:focus, input:focus{outline:2px solid var(--blue); outline-offset:1px;}
+  .hint{font-size:11px; color:var(--ink-soft); margin-top:6px; line-height:1.5;}
+  .field-row{margin-top:12px;}
+  .field-row label{display:block; font-size:12px; color:var(--ink-soft); margin-bottom:5px;}
+  .check-row{display:flex; align-items:flex-start; gap:9px; margin-top:12px; font-size:12.3px; color:var(--ink-soft); line-height:1.5;}
+  .check-row input{margin-top:2px;}
+  .threshold-row{display:flex; align-items:center; gap:10px; margin-top:12px;}
+  .threshold-row label{font-size:12.5px; color:var(--ink-soft); flex:1;}
+  .threshold-row input[type=number]{width:64px; text-align:center;}
+  input[type=date]{font-family:'Sarabun',sans-serif; font-size:12.5px; border:1px solid var(--line); border-radius:6px; padding:7px 9px; width:100%;}
+
+  .dropzone{margin-top:14px; border:2px dashed var(--line); border-radius:8px; padding:22px 14px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s;}
+  .dropzone:hover, .dropzone.drag{border-color:var(--blue); background:var(--blue-soft);}
+  .dropzone svg{width:24px;height:24px; color:var(--ink-soft); margin-bottom:6px;}
+  .dropzone p{margin:0; font-size:12.8px; color:var(--ink-soft);}
+  .dropzone strong{color:var(--ink);}
+  input#fileInput{display:none;}
+
+  #fileList{margin-top:12px; display:flex; flex-direction:column; gap:6px;}
+  .file-chip{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; background:#F7FAFE; border:1px solid var(--line); border-radius:6px; padding:6px 10px;}
+  .file-chip button{border:none; background:none; color:var(--seal); cursor:pointer; font-size:14px; line-height:1; padding:0 2px;}
+
+  button.primary{margin-top:14px; width:100%; padding:11px 16px; border:none; border-radius:7px; background:var(--blue); color:#fff; font-family:'Sarabun',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:transform .08s, background .15s;}
+  button.primary:hover:not(:disabled){background:var(--ink); box-shadow:inset 0 -3px 0 var(--jiffy-yellow);}
+  button.primary:active:not(:disabled){transform:translateY(1px);}
+  button.primary:disabled{opacity:.5; cursor:not-allowed;}
+  button.ghost{margin-top:8px; width:100%; padding:8px 16px; border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--ink-soft); font-family:'Sarabun',sans-serif; font-size:12.8px; cursor:pointer;}
+  button.ghost:hover{border-color:var(--ink-soft); color:var(--ink);}
+  button.small{padding:5px 10px; font-size:11.3px; border-radius:5px; border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--ink-soft);}
+  button.small:hover{border-color:var(--ink);color:var(--ink);}
+  button.small.active-ok{background:var(--match-soft); border-color:var(--match); color:var(--match);}
+  button.small.active-bad{background:var(--seal-soft); border-color:var(--seal); color:var(--seal);}
+
+  .status-line{margin-top:12px; font-size:12px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace;}
+  .progress-track{height:6px; border-radius:99px; background:var(--line); overflow:hidden; margin-top:6px;}
+  .progress-fill{height:100%; width:0%; background:var(--blue); transition:width .2s;}
+  .train-stats{margin-top:12px; font-size:11.5px; color:var(--ink-soft); display:flex; gap:14px; flex-wrap:wrap;}
+  .train-stats b{color:var(--ink);}
+
+  .results-toolbar{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:14px;}
+  .results-toolbar .left{display:flex; align-items:center; gap:16px; font-size:12.8px; color:var(--ink-soft); flex-wrap:wrap;}
+  .results-toolbar label{display:flex; align-items:center; gap:6px;}
+  .results-toolbar input[type=checkbox]{width:15px;height:15px;}
+  .results-toolbar .summary{font-size:12px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace;}
+  .export-btn{padding:8px 16px; border:1px solid var(--blue); background:var(--blue-soft); color:var(--blue); border-radius:7px; font-size:12.8px; font-weight:600; cursor:pointer;}
+  .export-btn:hover{background:var(--blue); color:#fff;}
+  .export-btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  .empty-state{border:1px dashed var(--line); border-radius:10px; padding:44px 20px; text-align:center; color:var(--ink-soft); font-size:13px;}
+
+  table.results-table{width:100%; border-collapse:collapse; background:var(--paper-raised); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  table.results-table th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); font-weight:600; padding:9px 8px; border-bottom:3px solid var(--blue); background:var(--jiffy-yellow-soft); color:var(--ink);}
+  table.results-table td{padding:9px 8px; border-bottom:1px solid var(--line); font-size:12.5px; vertical-align:middle;}
+  table.results-table tr.row-fail td{background:var(--seal-soft);}
+  table.results-table tr.row-warn td{background:var(--amber-soft);}
+  table.results-table tr.clickable{cursor:pointer;}
+  table.results-table tr.clickable:hover td{filter:brightness(0.97);}
+  .mono{font-family:'JetBrains Mono',monospace; font-size:12px;}
+  .pill{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap;}
+  .pill.ok{background:var(--match-soft); color:var(--match);}
+  .pill.warn{background:var(--amber-soft); color:var(--amber); border:1px solid var(--amber);}
+  .pill.bad{background:var(--seal-soft); color:var(--seal); border:1px solid var(--seal);}
+  .score-num{font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .score-num.ok{color:var(--match);} .score-num.warn{color:var(--amber);} .score-num.bad{color:var(--seal);}
+
+  .detail-row td{background:#F7FAFE; padding:0;}
+  .detail-inner{padding:16px 20px 20px;}
+  .detail-section-title{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin:14px 0 8px; font-weight:600;}
+  .detail-section-title:first-child{margin-top:0;}
+  .field-list{display:flex; flex-direction:column; gap:6px;}
+  .field-item{display:grid; grid-template-columns:1fr 1fr 55px 120px; gap:10px; align-items:center; font-size:12.2px; padding:7px 10px; border:1px solid var(--line); border-radius:6px; background:#fff;}
+  .field-item .fname{color:var(--ink-soft);}
+  .field-item .fmatch{font-family:'JetBrains Mono',monospace; color:var(--ink);}
+  .field-item .fscore{text-align:right; font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .field-item .fbtns{display:flex; gap:5px; justify-content:flex-end;}
+  .excel-preview{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:8px;}
+  .excel-preview .cell{border:1px solid var(--line); border-radius:6px; padding:8px 10px; background:#fff;}
+  .excel-preview .cell.hl{border-color:var(--match); background:var(--match-soft);}
+  .excel-preview .cell .k{font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em;}
+  .excel-preview .cell .v{font-family:'JetBrains Mono',monospace; font-size:12.5px; margin-top:2px; word-break:break-word;}
+  details.raw{margin-top:14px;}
+  details.raw summary{cursor:pointer; font-size:12px; color:var(--ink-soft);}
+  details.raw pre{margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow:auto;}
+
+  .annot-wrap{margin-top:8px;}
+  .annot-wrap button.small{margin-bottom:8px;}
+  .annot-wrap img{max-width:100%; border:1px solid var(--line); border-radius:8px; display:block;}
+  .annot-legend{display:flex; gap:14px; margin-top:8px; font-size:11px; color:var(--ink-soft); flex-wrap:wrap;}
+  .annot-legend span{display:inline-flex; align-items:center; gap:5px;}
+  .legend-sw{width:12px;height:12px;border-radius:3px;display:inline-block;}
+  .annot-note{font-size:11px; color:var(--ink-soft); margin-top:6px;}
+
+  .learn-note{font-size:11px; color:var(--ink-soft); background:var(--blue-soft); border:1px solid var(--blue); border-radius:8px; padding:9px 12px; margin-bottom:12px; line-height:1.6;}
+
+  footer{margin-top:36px; padding-top:16px; border-top:1px solid var(--line); font-size:11.5px; color:var(--ink-soft); line-height:1.7;}
+  .bc-input{font-family:'JetBrains Mono',monospace; font-size:12px; width:84px; padding:4px 6px; border:1px solid var(--line); border-radius:5px; background:#fff;}
+  .bc-input.bn-input::placeholder{color:#9AA8BF; font-weight:400;}
+  .bn-input{font-family:'Sarabun',sans-serif !important; width:110px; margin-top:4px; font-size:11.5px;}
+  .bc-cell .bc-input{display:block; width:110px;}
+  .copy-tick{display:inline-flex; flex-direction:column; align-items:flex-start; gap:2px; line-height:1.2;}
+  table.results-table .sub{font-size:11px; color:var(--ink-soft);}
+  .bc-input.unsure{border-color:var(--amber); background:var(--amber-soft);}
+  .bc-input.empty{border-color:var(--line); background:#fff;}
+  .bc-input::placeholder{color:var(--seal); font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <p class="eyebrow">PTT Retail Business Receipt · OCR Verification</p>
+      <h1>ตรวจสอบใบเสร็จ ปตท.บริหารธุรกิจค้าปลีก</h1>
+      <p class="top-sub">ตรวจเฉพาะใบเสร็จของ บริษัท ปตท.บริหารธุรกิจค้าปลีก จำกัด — เช็คว่าเป็นเอกสารของผู้ออกจริง ชื่อ+ที่อยู่ลูกค้าครบถ้วนสะกดถูก อ่านรหัสสาขาจากตราปั๊ม แล้วเลือกยอดเงินตามวันที่ที่กำหนด (วันที่บนใบนี้เป็น ค.ศ. ไม่ใช่ พ.ศ.)</p>
+    </div>
+    <div class="privacy-pill"><span class="dot"></span>ประมวลผลในเบราว์เซอร์ทั้งหมด — ไฟล์ไม่ถูกส่งขึ้นเซิร์ฟเวอร์</div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>1 · ผู้ออกใบเสร็จ (ต้องเป็นเอกสารของ ปตท.บริหารธุรกิจค้าปลีก)</h2>
+        <div class="field-row">
+          <label>ที่อยู่ผู้ออก (เช็คแบบ "มีคำนี้ไหม" ทุกคำ)</label>
+          <textarea id="issuerAddrInput" style="min-height:56px;">สำนักงานใหญ่ เลขที่ 1010 ถนนวิภาวดีรังสิต แขวงจตุจักร เขตจตุจักร กรุงเทพมหานคร 10900</textarea>
+        </div>
+        <div class="field-row">
+          <label>เลขประจำตัวผู้เสียภาษีผู้ออก</label>
+          <input type="text" id="issuerTaxIdInput" value="0105537121254">
+        </div>
+        <p class="hint">แค่เช็คว่ามีเลขผู้เสียภาษี + มีคำในที่อยู่ + มีข้อความ "สาขาที่ออกใบกำกับภาษี" อยู่ในเอกสารหรือไม่ ถ้าไม่ผ่านจะไม่นับเป็นเอกสารของผู้ออกรายนี้ และไม่รวมใน Excel สรุป</p>
+      </div>
+
+      <div class="panel">
+        <h2>2 · ข้อมูลลูกค้า (ปตท. น้ำมันฯ) — เน้นตรวจชื่อเป็นพิเศษ</h2>
+        <div class="field-row">
+          <label>ชื่อผู้ซื้อสินค้า (แต่ละคำต้องสะกดถูก เว้นวรรคได้)</label>
+          <input type="text" id="customerNameInput" value="บริษัท ปตท.น้ำมันและการค้าปลีก จำกัด (มหาชน) สำนักงานใหญ่">
+        </div>
+        <div class="field-row">
+          <label>ที่อยู่/คำที่ต้องมี (อิสระ ไม่ต้องเรียง) — B/บี และ ชั้น/ชั้นที่ ถือว่าเหมือนกัน</label>
+          <textarea id="refText">555/2 ศูนย์เอนเนอร์ยี่คอมเพล็กซ์ อาคารบี ชั้น 12
+ถนนวิภาวดีรังสิต แขวงจตุจักร เขตจตุจักร กรุงเทพฯ 10900</textarea>
+        </div>
+        <div class="field-row">
+          <label>เลขประจำตัวผู้เสียภาษีลูกค้า</label>
+          <input type="text" id="taxIdInput" value="0107561000013">
+        </div>
+        <p class="hint">กรุงเทพฯ/กรุงเทพมหานคร ถือว่าเหมือนกัน — ชื่อบริษัทให้น้ำหนักคะแนนสูงสุดในการคำนวณคะแนนรวม</p>
+      </div>
+
+      <div class="panel">
+        <h2>3 · วันที่ใช้ตัดสินยอดเงิน</h2>
+        <div class="field-row" style="margin-top:0;">
+          <label>ใบเสร็จลงวันที่ไม่เกินวันที่ (ปล่อยว่าง = ไม่จำกัด)</label>
+          <input type="date" id="dateEndInput">
+        </div>
+        <p class="hint">วันที่บนใบเสร็จนี้เป็นปี ค.ศ. (เช่น 2026) ไม่ใช่ พ.ศ. — ต่างจากใบเสร็จ CP ALL<br>ถ้าที่อยู่/ชื่อลูกค้าถูกต้อง + วันที่ไม่เกินกำหนด → ใช้ "รวมรายการ ที่มีภาษีมูลค่าเพิ่ม" (รวม VAT)<br>ถ้าผิดเงื่อนไขใดก็ตาม → ใช้ "จำนวนเงินรวมก่อนภาษีมูลค่าเพิ่ม" (ตัด VAT ออก)</p>
+        <div class="threshold-row">
+          <label for="threshold">เกณฑ์ผ่านโดยรวม (%)</label>
+          <input type="number" id="threshold" min="0" max="100" value="60">
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>4 · อัปโหลดเอกสาร (PDF)</h2>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="อัปโหลดไฟล์ PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+          <p><strong>คลิกเพื่อเลือกไฟล์</strong> หรือลากไฟล์ PDF มาวางที่นี่</p>
+        </div>
+        <input type="file" id="fileInput" accept="application/pdf" multiple>
+        <div id="fileList"></div>
+        <button class="primary" id="runBtn" disabled>ตรวจสอบเอกสารทั้งหมด</button>
+        <button class="ghost" id="clearBtn">ล้างทั้งหมด</button>
+        <div class="status-line" id="statusLine"></div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="train-stats">
+          <span>ยืนยันถูก: <b id="statConfirm">0</b></span>
+          <span>แก้ไขผิด: <b id="statReject">0</b></span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="results-toolbar" id="resultsToolbar" style="display:none;">
+        <div class="left">
+          <label><input type="checkbox" id="failOnlyToggle"> แสดงเฉพาะรายการที่ไม่ผ่านเกณฑ์</label>
+          <span class="summary" id="summaryText"></span>
+        </div>
+        <button class="export-btn" id="exportBtn" disabled>⬇ ส่งออกเป็น Excel</button>
+      </div>
+      <div id="resultsHolder">
+        <div class="empty-state" id="emptyState">ยังไม่มีผลลัพธ์ — อัปโหลดไฟล์ PDF แล้วกด "ตรวจสอบเอกสารทั้งหมด"</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    OCR ภาษาไทยทำงานผ่าน Tesseract.js (WebAssembly) ในเบราว์เซอร์ของคุณโดยตรง — การโหลดโมดูลภาษาไทยครั้งแรกอาจใช้เวลาสักครู่<br>
+    <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นในเบราว์เซอร์ (ไม่ใช่โมเดล AI จริง) จำนวนครั้งสะสมอยู่มุมซ้ายและใน Excel ชีท "สถิติการเทรน"<br>
+    <strong>รหัสสาขา:</strong> แยกหมึกแดง/ชมพูของตราปั๊มออกมา OCR สองรอบ (ทั้งตรา + เฉพาะบรรทัดรหัส) แล้วโหวตหา "SC ####" — ช่องขาว = สองรอบอ่านตรงกัน, ช่องเหลือง = ไม่แน่ใจ, ช่องแดง = อ่านไม่ได้ · <b>พิมพ์แก้ในช่องรหัสสาขาได้เลย</b> (กดที่แถวเพื่อดูรูปตราปั๊ม) ค่าที่แก้จะไปอยู่ใน Excel<br>
+    <strong>ต้นฉบับ/สำเนา:</strong> อ่านจากคำที่พิมพ์บนเอกสาร เช่น "(ต้นฉบับ-ลูกค้า)" หรือ "สำเนา" — มี (?) ต่อท้ายถ้า OCR อ่านคำไม่ชัด ไม่สามารถบอกได้ว่าเป็นเอกสารที่ถ่ายเอกสารมาจากต้นฉบับหรือไม่<br>
+    <strong>ยอดเงิน:</strong> ใช้สองวิธีร่วมกัน (1) หาเลขติดกับป้ายชื่อ (2) นับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายในหน้า เผื่อ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน — ควรตรวจทานก่อนใช้งานจริง<br>
+    <strong>Excel:</strong> ชีทหลัก "สรุป" มีเลขที่บิล/รหัสสาขา/ยอดเงิน/สถานะ VAT — ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const pdfjsLib = window['pdfjsLib'];
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+  let queuedFiles = [];
+  let worker = null;
+  let allBills = [];
+  let feedback = { aliases: {}, rejects: {}, stats: { confirm: 0, reject: 0 } };
+
+  const els = {};
+  ['issuerAddrInput','issuerTaxIdInput','customerNameInput','refText','taxIdInput',
+   'dateEndInput','threshold','dropzone','fileInput','fileList',
+   'runBtn','clearBtn','resultsHolder','emptyState','resultsToolbar','failOnlyToggle',
+   'summaryText','statusLine','progressFill','exportBtn',
+   'statConfirm','statReject'].forEach(id => els[id] = document.getElementById(id));
+
+  // ---------- persistent feedback ----------
+  const FEEDBACK_KEY = 'pttrb-word-feedback-v1';
+  async function loadFeedback(){
+    try{
+      let raw = null;
+      if(window.storage && window.storage.get){
+        const r = await window.storage.get(FEEDBACK_KEY, false);
+        raw = r && r.value;
+      }
+      if(!raw) raw = localStorage.getItem(FEEDBACK_KEY);
+      if(raw){ feedback = JSON.parse(raw); if(!feedback.stats) feedback.stats={confirm:0,reject:0}; }
+    }catch(e){}
+    updateStatDisplay();
+  }
+  async function saveFeedback(){
+    const raw = JSON.stringify(feedback);
+    try{ localStorage.setItem(FEEDBACK_KEY, raw); }catch(e){}
+    try{ if(window.storage && window.storage.set) await window.storage.set(FEEDBACK_KEY, raw, false); }
+    catch(e){ console.warn('feedback save failed', e); }
+    updateStatDisplay();
+  }
+  function updateStatDisplay(){
+    els.statConfirm.textContent = feedback.stats.confirm;
+    els.statReject.textContent = feedback.stats.reject;
+  }
+  function markReject(word, matchedText){
+    if(!feedback.rejects[word]) feedback.rejects[word] = [];
+    if(!feedback.rejects[word].includes(matchedText)) feedback.rejects[word].push(matchedText);
+    feedback.stats.reject += 1; saveFeedback();
+  }
+  function markAlias(word, matchedText){
+    if(!feedback.aliases[word]) feedback.aliases[word] = [];
+    if(!feedback.aliases[word].includes(matchedText)) feedback.aliases[word].push(matchedText);
+    feedback.stats.confirm += 1; saveFeedback();
+  }
+
+  // ---------- file selection UI ----------
+  els.dropzone.addEventListener('click', () => els.fileInput.click());
+  els.dropzone.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') els.fileInput.click(); });
+  els.dropzone.addEventListener('dragover', e => { e.preventDefault(); els.dropzone.classList.add('drag'); });
+  els.dropzone.addEventListener('dragleave', () => els.dropzone.classList.remove('drag'));
+  els.dropzone.addEventListener('drop', e => {
+    e.preventDefault(); els.dropzone.classList.remove('drag');
+    addFiles(Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf'));
+  });
+  els.fileInput.addEventListener('change', e => { addFiles(Array.from(e.target.files)); els.fileInput.value=''; });
+
+  function addFiles(files){ for(const f of files) queuedFiles.push(f); renderFileList(); }
+  function renderFileList(){
+    els.fileList.innerHTML = '';
+    queuedFiles.forEach((f, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip';
+      chip.innerHTML = `<span>${escapeHtml(f.name)}</span>`;
+      const btn = document.createElement('button');
+      btn.textContent = '✕'; btn.title = 'ลบไฟล์นี้';
+      btn.onclick = () => { queuedFiles.splice(i,1); renderFileList(); };
+      chip.appendChild(btn);
+      els.fileList.appendChild(chip);
+    });
+    els.runBtn.disabled = queuedFiles.length === 0;
+  }
+  els.clearBtn.addEventListener('click', () => {
+    queuedFiles = []; allBills = []; renderFileList();
+    els.resultsHolder.innerHTML = ''; els.resultsHolder.appendChild(els.emptyState);
+    els.resultsToolbar.style.display = 'none';
+    els.statusLine.textContent = ''; els.progressFill.style.width = '0%';
+    els.exportBtn.disabled = true;
+  });
+
+  // ---------- text utils ----------
+  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function stripSpace(s){ return String(s).replace(/\s+/g,''); }
+  function canonicalizeText(s){
+    let t = String(s);
+    t = t.replace(/กรุงเทพมหานคร/g,'กรุงเทพ').replace(/กรุงเทพฯ/g,'กรุงเทพ').replace(/กทม\.?/g,'กรุงเทพ');
+    t = t.replace(/อาคาร\s*บี/g, 'อาคารบี').replace(/อาคาร\s*[Bb]\b/g, 'อาคารบี');
+    t = t.replace(/ชั้นที่\s*12/g, 'ชั้น12').replace(/ชั้น\s*12/g, 'ชั้น12');
+    return t;
+  }
+  function lcsLength(a,b){
+    const n=a.length,m=b.length; let prev=new Array(m+1).fill(0);
+    for(let i=1;i<=n;i++){ const cur=new Array(m+1).fill(0);
+      for(let j=1;j<=m;j++){ cur[j] = a[i-1]===b[j-1] ? prev[j-1]+1 : Math.max(prev[j],cur[j-1]); }
+      prev=cur; }
+    return prev[m];
+  }
+  function similarityRatio(a,b){
+    if(a.length===0 && b.length===0) return 1;
+    return (2*lcsLength(a,b))/(a.length+b.length);
+  }
+  function classify(word, score){
+    const len = stripSpace(word).length;
+    const exactThresh = len <= 4 ? 0.97 : 0.95;
+    const nearThresh  = len <= 4 ? 0.90 : 0.75;
+    if(score >= exactThresh) return 'ตรง';
+    if(score >= nearThresh) return 'สะกดผิด/ใกล้เคียง';
+    return 'ไม่พบ';
+  }
+  // PRIMARY, ROBUST scorer: char-level fuzzy substring search over the full
+  // page text. Used for every pass/fail decision. Token/bbox search below
+  // is only ever used to *locate* a match for the on-image overlay.
+  function approxFindChars(word, hay){
+    const w = stripSpace(canonicalizeText(word));
+    const h = stripSpace(canonicalizeText(hay));
+    if(w.length===0) return {score:1, match:''};
+    if(h.length===0) return {score:0, match:''};
+    const tol = Math.min(6, Math.max(1, Math.ceil(w.length*0.3)));
+    const minLen = Math.max(1, w.length-tol);
+    const maxLen = Math.min(h.length, w.length+tol);
+    let best=-1, bestText='';
+    for(let len=minLen; len<=maxLen; len++){
+      for(let start=0; start+len<=h.length; start++){
+        const win = h.substr(start,len);
+        const r = similarityRatio(w, win);
+        if(r>best){ best=r; bestText=win; }
+      }
+    }
+    return {score:Math.max(best,0), match:bestText};
+  }
+
+  // ---------- token/bbox matching (visualization only) ----------
+  function extractTessWords(data){
+    if(Array.isArray(data.words) && data.words.length) return data.words.filter(w=>w && w.text && w.bbox);
+    const out = [];
+    for(const block of (data.blocks||[])){
+      for(const para of (block.paragraphs||[])){
+        for(const line of (para.lines||[])){
+          for(const w of (line.words||[])){ if(w && w.text && w.bbox) out.push(w); }
+        }
+      }
+    }
+    return out;
+  }
+  function windowJoin(tw, start, w){ return tw.slice(start,start+w).map(x=>stripSpace(canonicalizeText(x.text))).join(''); }
+  function windowJoinDigits(tw, start, w){ return tw.slice(start,start+w).map(x=>x.text).join('').replace(/\D/g,''); }
+  function windowBBox(tw, start, w){
+    const slice = tw.slice(start,start+w);
+    return { x0: Math.min(...slice.map(x=>x.bbox.x0)), y0: Math.min(...slice.map(x=>x.bbox.y0)),
+             x1: Math.max(...slice.map(x=>x.bbox.x1)), y1: Math.max(...slice.map(x=>x.bbox.y1)) };
+  }
+  function findBboxTokens(query, tw){
+    const q = stripSpace(canonicalizeText(query));
+    if(q.length===0 || tw.length===0) return null;
+    const maxW = Math.min(tw.length, Math.max(1, Math.ceil(q.length/2)) + 4);
+    let best=-1, bestBBox=null;
+    for(let w=1; w<=maxW; w++){
+      for(let start=0; start+w<=tw.length; start++){
+        const joined = windowJoin(tw, start, w);
+        if(joined.length===0) continue;
+        const r = similarityRatio(q, joined);
+        if(r>best){ best=r; bestBBox=windowBBox(tw,start,w); }
+      }
+    }
+    return best >= 0.6 ? bestBBox : null;
+  }
+  function findBboxDigits(queryDigits, tw){
+    if(!queryDigits || tw.length===0) return null;
+    const maxW = Math.min(tw.length, 20);
+    let best=-1, bestBBox=null;
+    for(let w=1; w<=maxW; w++){
+      for(let start=0; start+w<=tw.length; start++){
+        const joined = windowJoinDigits(tw, start, w);
+        if(joined.length===0) continue;
+        const r = similarityRatio(queryDigits, joined);
+        if(r>best){ best=r; bestBBox=windowBBox(tw,start,w); }
+      }
+    }
+    return best >= 0.6 ? bestBBox : null;
+  }
+
+  // word-level match with learned aliases/rejects, scored via char-level (robust)
+  function matchWord(word, rawText, tessWords){
+    const aliasList = feedback.aliases[word] || [];
+    const hStripped = stripSpace(canonicalizeText(rawText));
+    for(const alias of aliasList){
+      if(hStripped.includes(stripSpace(canonicalizeText(alias)))){
+        return { score:1, match: alias, bbox: tessWords.length ? findBboxTokens(alias, tessWords) : null };
+      }
+    }
+    const r = approxFindChars(word, rawText);
+    const rejectList = feedback.rejects[word] || [];
+    if(rejectList.includes(r.match)) return { score:0, match:'', bbox:null };
+    return { score: r.score, match: r.match, bbox: tessWords.length ? findBboxTokens(word, tessWords) : null };
+  }
+
+  // ---------- excel field extraction (PTT Retail Business template) ----------
+  // invoice no. is the 16-digit number top-right ("เลขที่ : 2691910020001326");
+  // the footer "…แทนฉบับเดิมเลขที่ 11250165" is the old short-form reference, not the bill no.
+  function extractInvoiceNo(rawText){
+    const t = String(rawText);
+    const m16 = t.match(/(?<!\d)(\d{16})(?!\d)/);
+    if(m16) return m16[1];
+    const re = /เลขที่\s*[:：]\s*([A-Za-z0-9]{10,20})/g;
+    let m; while((m = re.exec(t))){ return m[1].trim(); }
+    return '';
+  }
+  // NOTE: this template's dates are Gregorian (ค.ศ.) already, unlike CP ALL
+  // receipts which use the Buddhist calendar — no -543 conversion here.
+  function extractInvoiceDate(rawText){
+    const m = rawText.match(/วันที่\s*[:：]?\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(!m) return null;
+    const day=+m[1], month=+m[2], year=+m[3];
+    const d = new Date(year, month-1, day);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // ---------- branch code from the red ink stamp ----------
+  // OCR often confuses stamp characters: S→5/$, C→G/(, 0→O, 1→I/l
+  function normalizeCodeDigits(s){
+    return s.replace(/[Oo]/g,'0').replace(/[Il|]/g,'1').replace(/[^0-9]/g,'');
+  }
+  function parseBranchCode(text){
+    if(!text) return '';
+    const flat = text.replace(/\n/g,' ');
+    // (a) strict: SC/CC + digits
+    let m = flat.match(/\b(SC|CC)\s*[-_.:]?\s*([0-9OoIl|][0-9OoIl|\s]{2,7})/i);
+    // (b) loose OCR confusions for S and C
+    if(!m) m = flat.match(/([S5$][C(G]|[C(][C(G])\s*[-_.:]?\s*([0-9OoIl|][0-9OoIl|\s]{2,7})/);
+    if(!m) return '';
+    let prefix = m[1].toUpperCase().replace(/[5$]/,'S').replace(/[(G]/g,'C');
+    if(prefix[0] !== 'S') prefix = 'CC';
+    let digits = normalizeCodeDigits(m[2]).slice(0,4);
+    if(digits.length < 3) return '';
+    return prefix + ' ' + digits.padStart(4,'0');
+  }
+  function extractBranchCodeFromText(rawText){
+    // only search just after the "รหัสสาขา" label so random text doesn't match
+    const flat = rawText.replace(/\n/g,' ');
+    const re = /ร?หัส\s*ส?าขา/g;
+    let mm;
+    while((mm = re.exec(flat))){
+      const code = parseBranchCode(flat.substr(mm.index + mm[0].length, 30));
+      if(code) return code;
+    }
+    const strict = flat.match(/\b(SC|CC)\s?-?\s?([0-9]{4})\b/i);
+    return strict ? (strict[1].toUpperCase()+' '+strict[2]) : '';
+  }
+  function extractStampBranchName(stampText){
+    if(!stampText) return '';
+    for(const line of stampText.split('\n')){
+      if(/หัส|[S5$8][Cc]\s*[._]?\s*\d{3}/.test(line)) continue;      // skip the code line
+      // "สาขา ____ Forestry" — label often misread (ลาขา, สาซา, าขา …)
+      const m = line.match(/[ก-๙]{0,2}[ขซ]า[\s_\-.:|~—]+(.+)$/);
+      if(m){
+        const name = m[1].replace(/[_|~—]+/g,' ').replace(/\s+/g,' ').trim();
+        const letters = (name.match(/[A-Za-zก-๙]/g) || []).length;
+        const nonSpace = name.replace(/\s/g,'').length;
+        if(letters >= 3 && letters >= nonSpace*0.6) return name.slice(0,40);   // skip OCR junk like "0!ธรค," / "3930 5159"
+      }
+    }
+    return '';
+  }
+  // blue Jiffy store stamp / printed header: "#91002 สาขาที่ 161"
+  function extractStoreBranch(rawText){
+    const flat = stripSpace(rawText);
+    const m = flat.match(/#?(9\d{4})สาขาที่0*(\d{1,5})/);
+    return m ? ('#'+m[1]+' สาขาที่ '+m[2]) : '';
+  }
+
+  // Isolate red/pink ink (stamp) → black on white.
+  // redness = R − max(G,B) so faint pink stamps still count; the cutoff adapts
+  // to how strong the ink is on this page; only the biggest red cluster is kept
+  // so stray red pen marks elsewhere don't stretch the crop.
+  function extractRedStamp(canvas){
+    const W = canvas.width, H = canvas.height;
+    const src = canvas.getContext('2d').getImageData(0,0,W,H).data;
+    const CELL = 24, gw = Math.ceil(W/CELL), gh = Math.ceil(H/CELL);
+    const counts = new Uint32Array(gw*gh);
+    const red = new Uint8Array(W*H);
+    for(let y=0; y<H; y++){
+      for(let x=0; x<W; x++){
+        const i = (y*W+x)*4, r=src[i], g=src[i+1], b=src[i+2];
+        const v = r - Math.max(g,b);
+        if(v > 0){ red[y*W+x] = v; if(v > 22) counts[Math.floor(y/CELL)*gw + Math.floor(x/CELL)]++; }
+      }
+    }
+    const on = new Uint8Array(gw*gh);
+    for(let k=0;k<gw*gh;k++) if(counts[k] >= CELL*CELL*0.02) on[k]=1;
+    // dilate by one cell so gaps in a faint stamp don't split it
+    const dil = new Uint8Array(gw*gh);
+    for(let gy=0; gy<gh; gy++) for(let gx=0; gx<gw; gx++){
+      if(!on[gy*gw+gx]) continue;
+      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+        const ny=gy+dy,nx=gx+dx; if(ny>=0&&ny<gh&&nx>=0&&nx<gw) dil[ny*gw+nx]=1;
+      }
+    }
+    const seen = new Uint8Array(gw*gh);
+    let best = null, bestSum = 0;
+    for(let k=0;k<gw*gh;k++){
+      if(!dil[k] || seen[k]) continue;
+      const stack=[k]; seen[k]=1;
+      let sum=0, x0=Infinity,y0=Infinity,x1=-1,y1=-1, n=0;
+      while(stack.length){
+        const c=stack.pop(), cy=Math.floor(c/gw), cx=c%gw;
+        sum+=counts[c]; n++;
+        if(on[c]){ x0=Math.min(x0,cx); y0=Math.min(y0,cy); x1=Math.max(x1,cx); y1=Math.max(y1,cy); }
+        for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+          const ny=cy+dy,nx=cx+dx; if(ny<0||ny>=gh||nx<0||nx>=gw) continue;
+          const q=ny*gw+nx; if(dil[q] && !seen[q]){ seen[q]=1; stack.push(q); }
+        }
+      }
+      if(x1>=0 && sum>bestSum){ bestSum=sum; best={x0,y0,x1,y1,n}; }
+    }
+    if(!best || best.n < 6) return null;
+    const pad = 12;
+    const cx0 = Math.max(0, best.x0*CELL-pad), cy0 = Math.max(0, best.y0*CELL-pad);
+    const cx1 = Math.min(W, (best.x1+1)*CELL+pad), cy1 = Math.min(H, (best.y1+1)*CELL+pad);
+    const cw = cx1-cx0, ch = cy1-cy0;
+    // adaptive cutoff: 35% of the 90th-percentile redness inside the crop
+    const hist = new Uint32Array(256); let tot=0;
+    for(let y=cy0;y<cy1;y++) for(let x=cx0;x<cx1;x++){ const v=red[y*W+x]; if(v>10){ hist[v]++; tot++; } }
+    let acc=0, p90=40;
+    for(let v=255; v>=0; v--){ acc+=hist[v]; if(acc >= tot*0.10){ p90=v; break; } }
+    const th = Math.max(14, p90*0.35);
+    // binarize at 2× size (Tesseract reads small stamp text better larger)
+    const S = 2;
+    const bin = document.createElement('canvas');
+    bin.width = cw*S; bin.height = ch*S;
+    const bctx = bin.getContext('2d');
+    const out = bctx.createImageData(cw*S, ch*S);
+    for(let y=0; y<ch*S; y++){
+      for(let x=0; x<cw*S; x++){
+        const v = red[(cy0+Math.floor(y/S))*W + (cx0+Math.floor(x/S))] > th ? 0 : 255;
+        const o = (y*cw*S+x)*4;
+        out.data[o]=v; out.data[o+1]=v; out.data[o+2]=v; out.data[o+3]=255;
+      }
+    }
+    bctx.putImageData(out,0,0);
+    // top ~third, right of the logo = the "รหัสสาขา ____ SC ####" line
+    const line = document.createElement('canvas');
+    const lx = Math.round(bin.width*0.35), lh = Math.round(bin.height*0.33);
+    line.width = bin.width-lx; line.height = lh;
+    line.getContext('2d').drawImage(bin, lx, 0, line.width, lh, 0, 0, line.width, lh);
+    const color = document.createElement('canvas');
+    color.width = cw; color.height = ch;
+    color.getContext('2d').drawImage(canvas, cx0, cy0, cw, ch, 0, 0, cw, ch);
+    return { bin, line, colorUrl: color.toDataURL('image/jpeg', 0.85) };
+  }
+
+  // ---------- branch code voting ----------
+  // OCR confuses stamp glyphs: S↔5/$/8, C↔(/G/c, 0↔O/o/U, 1↔I/l, 9↔g, 8↔B
+  const DIGIT_FIX = { O:'0', o:'0', D:'0', U:'0', u:'0', Q:'0', I:'1', l:'1', i:'1', '|':'1', Z:'2', z:'2', S:'5', s:'5', $:'5', B:'8', g:'9', q:'9' };
+  function codeCandidates(text){
+    const out = [];
+    if(!text) return out;
+    const flat = text.replace(/\n/g,' ');
+    let m;
+    // strict: SC 1234 / SC.1234 / SC-1234
+    const reStrict = /(?:^|[^A-Za-z])([SC]C)\s*[._:\-]?\s*(\d{4})(?!\d)/gi;
+    while((m = reStrict.exec(flat))) out.push({ code: m[1].toUpperCase()+' '+m[2], w: 3 });
+    // loose: S/5/$/8 + C/(/G/c/o/0 (or just C) + 4 digit-ish glyphs
+    const reLoose = /([S5$8s]?)([Cc(G]|[o0](?=\s?[._]))\s*[._:\-]?\s*([0-9OoDUuQIli|ZzSs$Bgq]{4})(?![0-9])/g;
+    while((m = reLoose.exec(flat))){
+      const digits = m[3].split('').map(ch => DIGIT_FIX[ch] ?? ch).join('');
+      if(!/^\d{4}$/.test(digits)) continue;
+      if(!/\d/.test(m[3])) continue;               // need at least one real digit
+      out.push({ code: 'SC '+digits, w: m[1] ? 2 : 1 });
+    }
+    return out;
+  }
+  function pickBranchCode(lineText, stampText){
+    const votes = {}, srcs = {};
+    [['line', lineText], ['stamp', stampText]].forEach(([name, t]) => {
+      const seen = new Set();
+      for(const c of codeCandidates(t)){
+        votes[c.code] = (votes[c.code]||0) + c.w;
+        if(!seen.has(c.code)){ seen.add(c.code); srcs[c.code] = (srcs[c.code]||0) + 1; }
+      }
+    });
+    const ranked = Object.keys(votes).sort((a,b) => votes[b]-votes[a]);
+    if(!ranked.length) return { code:'', sure:false };
+    const top = ranked[0];
+    return { code: top, sure: srcs[top] >= 2 && (ranked.length === 1 || votes[top] > votes[ranked[1]]), alt: ranked[1] || '' };
+  }
+
+  // partial read like "SC.003!" → "003", later matched against codes read elsewhere in the batch
+  function partialCodePrefix(text){
+    if(!text) return '';
+    const m = text.replace(/\n/g,' ').match(/[S5\$8][Cc(]\s*[._:\-]?\s*([0-9OoU]{3})(?![0-9])/);
+    return m ? m[1].replace(/[OoU]/g,'0') : '';
+  }
+
+  // ---------- Thai "skeleton": OCR often swaps tone marks (ต้น→ตัน) and writes ำ as ํ+า ----------
+  function thaiSkel(s){
+    return String(s).replace(/\s+/g,'')
+      .replace(/ํา/g,'า').replace(/ำ/g,'า')
+      .replace(/[ัิ-ฺ็-๎]/g,'');
+  }
+
+  // ---------- original vs copy: read the "(ต้นฉบับ-ลูกค้า)" label beside the title ----------
+  const PARTY = [['ลกคา','ลูกค้า'],['รานคา','ร้านค้า'],['บญช','บัญชี'],['ผซอ','ผู้ซื้อ'],['ผขาย','ผู้ขาย']];
+  function readCopyLabel(text){
+    if(!text) return null;
+    for(const line of String(text).split('\n')){
+      const k = thaiSkel(line);
+      if(!/ภาษ|กบภ|ใบเสร/.test(k)) continue;
+      const m = k.match(/\(([^()]{2,30})\)?/);
+      if(!m) continue;
+      const inner = m[1];
+      let type = '';
+      if(/สาเนา|สเนา|สาเน/.test(inner)) type = 'สำเนา';
+      else if(/นฉบบ|ตนฉ|ดนฉ/.test(inner)) type = 'ต้นฉบับ';
+      if(!type) continue;
+      const pm = PARTY.find(([sk]) => inner.includes(sk));
+      return { type, party: pm ? pm[1] : '', sure: true };
+    }
+    return null;
+  }
+  // titleText = OCR of just the title line (most reliable); rawText = whole page (fallback)
+  function detectCopyType(titleText, rawText){
+    const r = readCopyLabel(titleText) || readCopyLabel(rawText);
+    if(r) return r;
+    const k = thaiSkel(rawText);
+    if(/สาเนา/.test(k)) return { type:'สำเนา', party:'', sure:false };
+    if(/ตนฉบบ|ดนฉบบ/.test(k)) return { type:'ต้นฉบับ', party:'', sure:false };
+    return { type:'ไม่พบ', party:'', sure:false };
+  }
+  // crop the title line "ใบเสร็จรับเงิน/ใบกำกับภาษี (ต้นฉบับ-ลูกค้า)" — stops before the
+  // right margin so handwriting next to the title doesn't spoil the read
+  function cropTitle(canvas){
+    const W = canvas.width, H = canvas.height;
+    const x0 = Math.round(W*0.25), y0 = Math.round(H*0.17), w = Math.round(W*0.47), h = Math.round(H*0.15);
+    return upscaleGray(canvas, x0, y0, w, h, 2, 150, 0);
+  }
+  function upscaleGray(canvas, x0, y0, w, h, S, thresh, pad){
+    const c = document.createElement('canvas');
+    c.width = w*S + pad*2; c.height = h*S + pad*2;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, x0, y0, w, h, pad, pad, w*S, h*S);
+    if(thresh){
+      const d = ctx.getImageData(0,0,c.width,c.height);
+      for(let i=0;i<d.data.length;i+=4){
+        const g = 0.299*d.data[i] + 0.587*d.data[i+1] + 0.114*d.data[i+2];
+        const v = g < thresh ? 0 : 255; d.data[i]=d.data[i+1]=d.data[i+2]=v;
+      }
+      ctx.putImageData(d,0,0);
+    }
+    return c;
+  }
+
+  // ---------- amounts ----------
+  function extractAllAmounts(rawText){ return (String(rawText).match(/\d{1,3}(?:,\d{3})*\.\d{2}/g) || []); }
+  const toNum = v => v ? Number(String(v).replace(/,/g,'')) : NaN;
+  const fmt2 = n => n.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
+  function amountAfterLabel(rawText, label){
+    const key = thaiSkel(label);
+    for(const line of String(rawText).split('\n')){
+      const k = thaiSkel(line);
+      const at = k.indexOf(key);
+      if(at < 0) continue;
+      const nums = k.slice(at + key.length).match(/\d{1,3}(?:,\d{3})*\.\d{2}/g);
+      if(nums) return nums[0];
+    }
+    return '';
+  }
+  // Cut the right-hand number column of the summary box into its ruled cells
+  // (รวมทั้งสิ้น / คูปอง / สุทธิ / ยกเว้นภาษี / ที่มีภาษี / VAT / ก่อน VAT).
+  // Reading each cell alone avoids the table lines and the pen circle confusing OCR.
+  function extractSummaryCells(canvas){
+    const W = canvas.width, H = canvas.height;
+    const x0 = Math.round(W*0.80), x1 = Math.round(W*0.99), y0 = Math.round(H*0.55), y1 = Math.round(H*0.95);
+    const rw = x1-x0, rh = y1-y0;
+    const d = canvas.getContext('2d').getImageData(x0,y0,rw,rh).data;
+    const dark = new Uint8Array(rw*rh);
+    for(let i=0;i<rw*rh;i++){ const g = 0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2]; dark[i] = g < 140 ? 1 : 0; }
+    const groups = idx => { const g=[]; for(const i of idx){ if(g.length && i-g[g.length-1][1] <= 2) g[g.length-1][1]=i; else g.push([i,i]); } return g; };
+    const colIdx = [];
+    for(let x=0;x<rw;x++){ let c=0; for(let y=0;y<rh;y++) c+=dark[y*rw+x]; if(c/rh > 0.35) colIdx.push(x); }
+    const vg = groups(colIdx);
+    let L = 0, R = rw;
+    if(vg.length >= 2){ L = vg[vg.length-2][1]+3; R = vg[vg.length-1][0]-2; }
+    else if(vg.length === 1){ L = vg[0][1]+3; }
+    if(R - L < rw*0.3){ L = 0; R = rw; }
+    const minH = H*0.006, maxH = H*0.03;
+    const cellsAt = th => {
+      const rows = [];
+      for(let y=0;y<rh;y++){ let c=0; for(let x=L;x<R;x++) c+=dark[y*rw+x]; if(c/(R-L) > th) rows.push(y); }
+      const hy = groups(rows), out = [];
+      for(let i=0;i<hy.length-1;i++){ const a=hy[i][1]+2, b=hy[i+1][0]-1; if(b-a > minH && b-a < maxH) out.push([a,b]); }
+      return out;
+    };
+    let cells = cellsAt(0.6);
+    if(cells.length < 3) cells = cellsAt(0.4);
+    return cells.map(([a,b]) => upscaleGray(canvas, x0+L, y0+a, R-L, b-a, 3, 0, 20));
+  }
+  function parseCellNum(t){
+    let s = String(t).trim().replace(/,(\d{2})\s*$/,'.$1').replace(/[^\d.]/g,'');
+    if(!s) return NaN;
+    const parts = s.split('.');
+    if(parts.length > 2) s = parts.slice(0,-1).join('') + '.' + parts[parts.length-1];
+    if(!s.includes('.') && s.length >= 3) s = s.slice(0,-2) + '.' + s.slice(-2);
+    const m = s.match(/(\d+)\.(\d{2})/);
+    return m ? Number(m[1]+'.'+m[2]) : NaN;
+  }
+  // Vote for "รวมรายการที่มีภาษีมูลค่าเพิ่ม" (T). Every correct T is backed by
+  // ก่อน VAT = T/1.07 and VAT = T − ก่อน VAT appearing among the numbers read,
+  // so a garbled/circled cell is out-voted by the rows around it.
+  function extractPttrbAmounts(rawText, cellTexts){
+    const cellNums = (cellTexts||[]).map(parseCellNum).filter(x => !isNaN(x));
+    const pageNums = extractAllAmounts(rawText).map(toNum);
+    const pool = [...cellNums.map(v=>({v,w:2})), ...pageNums.map(v=>({v,w:1}))].filter(x => x.v > 0);
+    const has = x => pool.filter(p => Math.abs(p.v-x) < 0.005).reduce((s,p)=>s+p.w,0);
+    let best = null;
+    for(const {v:T} of pool){
+      if(T < 1) continue;
+      const S = Math.round(T/1.07*100)/100, V = Math.round((T-S)*100)/100;
+      const hT = has(T), hS = has(S), hV = has(V);
+      if(!hS && !hV) continue;
+      const sc = Math.min(hT,6) + 2*Math.min(hS,2) + 2*Math.min(hV,2);
+      if(!best || sc > best.sc || (sc === best.sc && T > best.T)) best = { T, S, V, sc, sure: (hS>0 && hV>0) || (hT>=2 && (hS>0 || hV>0)) };
+    }
+    if(!best){
+      // nothing backed by VAT maths → most-repeated amount (รวมทั้งสิ้น/สุทธิ/ที่มีภาษี are normally equal), flagged unsure
+      let top = null;
+      for(const {v:T} of pool){ if(T < 1) continue; const h = has(T); if(h >= 3 && (!top || h > top.h)) top = { T, h }; }
+      if(top){ const S = Math.round(top.T/1.07*100)/100; best = { T: top.T, S, V: Math.round((top.T-S)*100)/100, sure: false }; }
+    }
+    const total = amountAfterLabel(rawText, 'จำนวนเงินรวมทั้งสิ้น') || (cellNums.length >= 7 ? fmt2(cellNums[cellNums.length-7]) : '');
+    if(!best) return { subtotal:'', vat:'', vatable:'', total, amountSure:false };
+    return { subtotal: fmt2(best.S), vat: fmt2(best.V), vatable: fmt2(best.T), total: total || fmt2(best.T), amountSure: best.sure };
+  }
+  function extractExcelFields(rawText, stampText, lineText, cellTexts){
+    const amounts = extractPttrbAmounts(rawText, cellTexts);
+    // prefer the dedicated red-stamp OCR; fall back to the full-page text
+    const pick = pickBranchCode(lineText, stampText);
+    let branchCode = pick.code, branchSure = pick.sure, branchAlt = pick.alt || '';
+    let branchSource = branchCode ? 'ตราปั๊มแดง' : '';
+    if(!branchCode){ branchCode = extractBranchCodeFromText(rawText); branchSure = false; if(branchCode) branchSource = 'ข้อความทั้งหน้า'; }
+    return {
+      invoiceNo: extractInvoiceNo(rawText),
+      date: extractInvoiceDate(rawText),
+      branchCode, branchSure, branchAlt, branchSource, branchOcr: branchCode,
+      branchPartial: branchCode ? '' : (partialCodePrefix(lineText) || partialCodePrefix(stampText)),
+      branchName: extractStampBranchName(stampText),
+      storeBranch: extractStoreBranch(rawText),
+      subtotal: amounts.subtotal,
+      vat: amounts.vat,
+      total: amounts.total,
+      vatable: amounts.vatable,
+      amountSure: amounts.amountSure
+    };
+  }
+  function dateOnOrBefore(d, endStr){
+    if(!endStr) return true;
+    if(!d) return false;
+    const e = new Date(endStr+'T23:59:59');
+    return d.getTime() <= e.getTime();
+  }
+
+  // ---------- annotated image ----------
+  function drawAnnotations(canvas, boxes){
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width; copy.height = canvas.height;
+    const ctx = copy.getContext('2d');
+    ctx.drawImage(canvas, 0, 0);
+    for(const b of boxes){
+      if(!b.bbox) continue;
+      const {x0,y0,x1,y1} = b.bbox;
+      ctx.fillStyle = b.fill; ctx.fillRect(x0,y0,x1-x0,y1-y0);
+      ctx.strokeStyle = b.stroke; ctx.lineWidth = 2.5; ctx.strokeRect(x0,y0,x1-x0,y1-y0);
+    }
+    return copy.toDataURL('image/png');
+  }
+  const COLORS = {
+    ok:     { fill:'rgba(47,107,79,0.30)',  stroke:'rgba(47,107,79,0.95)' },
+    warn:   { fill:'rgba(156,107,20,0.30)', stroke:'rgba(156,107,20,0.95)' },
+    tax:    { fill:'rgba(42,92,138,0.30)',  stroke:'rgba(42,92,138,0.95)' },
+    issuer: { fill:'rgba(122,68,158,0.30)', stroke:'rgba(122,68,158,0.95)' }
+  };
+
+  // ---------- pdf -> canvases ----------
+  async function pdfToCanvases(arrayBuffer){
+    const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+    const canvases = [];
+    for(let p=1; p<=pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      const viewport = page.getViewport({scale: 2.4});
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({canvasContext: ctx, viewport}).promise;
+      canvases.push(canvas);
+    }
+    return canvases;
+  }
+  async function getWorker(onLog){
+    if(worker) return worker;
+    const { createWorker } = Tesseract;
+    worker = await createWorker('tha+eng', 1, { logger: onLog });
+    return worker;
+  }
+  // separate English-only worker for the "SC ####" line of the stamp
+  let codeWorker = null;
+  async function getCodeWorker(){
+    if(codeWorker) return codeWorker;
+    const { createWorker } = Tesseract;
+    codeWorker = await createWorker('eng', 1);
+    await codeWorker.setParameters({ tessedit_pageseg_mode: '6' });
+    return codeWorker;
+  }
+  // English digits-only worker for the summary-box cells
+  let numWorker = null;
+  async function getNumWorker(){
+    if(numWorker) return numWorker;
+    const { createWorker } = Tesseract;
+    numWorker = await createWorker('eng', 1);
+    await numWorker.setParameters({ tessedit_char_whitelist: '0123456789.,', tessedit_pageseg_mode: '7' });
+    return numWorker;
+  }
+  function getRequiredWords(){
+    return els.refText.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
+  }
+
+  // ---------- main run ----------
+  els.runBtn.addEventListener('click', async () => {
+    if(queuedFiles.length === 0) return;
+    els.runBtn.disabled = true;
+    allBills = [];
+    els.resultsHolder.innerHTML = '';
+    els.resultsToolbar.style.display = 'none';
+    els.exportBtn.disabled = true;
+
+    const addressWords = getRequiredWords();
+    const nameWords = els.customerNameInput.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
+    const issuerAddrWords = els.issuerAddrInput.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
+    const customerTaxId = els.taxIdInput.value.replace(/\D/g,'');
+    const issuerTaxId = els.issuerTaxIdInput.value.replace(/\D/g,'');
+    const dateEnd = els.dateEndInput.value;
+    const files = queuedFiles.slice();
+
+    let totalPages = 0, doneUnits = 0;
+    const filePages = [];
+    for(const f of files){
+      els.statusLine.textContent = `กำลังเปิดไฟล์ ${f.name}...`;
+      const buf = await f.arrayBuffer();
+      const canvases = await pdfToCanvases(buf);
+      filePages.push({ file: f, canvases });
+      totalPages += canvases.length;
+    }
+
+    els.statusLine.textContent = 'กำลังเตรียมโมดูล OCR ภาษาไทย (ครั้งแรกอาจใช้เวลาสักครู่)...';
+    const w = await getWorker(m => {
+      if(m.status === 'recognizing text' && typeof m.progress === 'number'){
+        const unitFrac = (doneUnits + m.progress) / Math.max(totalPages,1);
+        els.progressFill.style.width = Math.round(unitFrac*100) + '%';
+      }
+    });
+
+    for(const entry of filePages){
+      for(let p=0; p<entry.canvases.length; p++){
+        els.statusLine.textContent = `กำลังอ่าน: ${entry.file.name} — หน้า ${p+1}/${entry.canvases.length}`;
+        const canvas = entry.canvases[p];
+        let data;
+        try{
+          const res = await w.recognize(canvas, {}, { text:true, blocks:true });
+          data = res.data;
+        }catch(e){
+          const res = await w.recognize(canvas);
+          data = res.data;
+        }
+        const rawText = data.text || '';
+        const tessWords = extractTessWords(data);
+
+        // --- second OCR pass on the red stamp only ---
+        let stampText = '', stampImg = '', lineText = '';
+        const stamp = extractRedStamp(canvas);
+        if(stamp){
+          stampImg = stamp.colorUrl;
+          els.statusLine.textContent = `กำลังอ่านตราปั๊ม: ${entry.file.name} — หน้า ${p+1}/${entry.canvases.length}`;
+          try{ stampText = (await w.recognize(stamp.bin)).data.text || ''; }catch(e){ stampText = ''; }
+          try{ lineText = (await (await getCodeWorker()).recognize(stamp.line)).data.text || ''; }catch(e){ lineText = ''; }
+        }
+        // --- title line only → ต้นฉบับ/สำเนา ---
+        els.statusLine.textContent = `กำลังอ่านต้นฉบับ/สำเนา + ยอดเงิน: ${entry.file.name} — หน้า ${p+1}/${entry.canvases.length}`;
+        let titleText = '';
+        try{ titleText = (await w.recognize(cropTitle(canvas))).data.text || ''; }catch(e){}
+        const copyInfo = detectCopyType(titleText, rawText);
+        // --- summary box, one cell at a time → amounts ---
+        const cellTexts = [];
+        try{
+          const nw = await getNumWorker();
+          for(const cell of extractSummaryCells(canvas)) cellTexts.push((await nw.recognize(cell)).data.text || '');
+        }catch(e){ console.warn('summary cells failed', e); }
+
+        // --- issuer existence checks (loose: presence, not exact phrase) ---
+        const issuerTaxR = approxFindChars(issuerTaxId, rawText.replace(/\D/g,''));
+        const issuerTaxBBox = tessWords.length ? findBboxDigits(issuerTaxId, tessWords) : null;
+        const issuerAddrResults = issuerAddrWords.map(w2 => matchWord(w2, rawText, tessWords));
+        const issuerAddrAvg = issuerAddrResults.length ? issuerAddrResults.reduce((s,x)=>s+x.score,0)/issuerAddrResults.length : 1;
+        const branchR = approxFindChars('สาขาที่ออกใบกำกับภาษี', rawText);
+        const isIssuerMatch = issuerTaxR.score >= 0.85 && issuerAddrAvg >= 0.6 && branchR.score >= 0.6;
+
+        // --- customer name (word-level, high weight) ---
+        const nameResults = nameWords.map(w2 => matchWord(w2, rawText, tessWords));
+        const nameAvg = nameResults.length ? nameResults.reduce((s,x)=>s+x.score,0)/nameResults.length : 1;
+        const namePass = nameAvg >= 0.90;
+
+        // --- customer address checklist ---
+        const wordResults = addressWords.map(w2 => {
+          const r = matchWord(w2, rawText, tessWords);
+          return { word: w2, score: r.score, match: r.match, bbox: r.bbox, status: classify(w2, r.score) };
+        });
+        const addrAvg = wordResults.length ? wordResults.reduce((s,x)=>s+x.score,0)/wordResults.length : 1;
+        const addrPass = addrAvg >= 0.85;
+
+        // --- customer tax id ---
+        const digitsOnly = rawText.replace(/\D/g,'');
+        const custR = customerTaxId ? approxFindChars(customerTaxId, digitsOnly) : {score:1, match:''};
+        const custBBox = customerTaxId && tessWords.length ? findBboxDigits(customerTaxId, tessWords) : null;
+        const custPass = custR.score >= 0.9;
+
+        const addressOk = isIssuerMatch && namePass && addrPass && custPass;
+
+        const excel = extractExcelFields(rawText, stampText, lineText, cellTexts);
+        const inRange = dateOnOrBefore(excel.date, dateEnd);
+        const useIncludeVat = addressOk && inRange;
+        const chosenAmount = useIncludeVat ? (excel.vatable || excel.total) : excel.subtotal;
+
+        const overallScore = (issuerTaxR.score*0.10) + (issuerAddrAvg*0.10) + (nameAvg*0.40) + (addrAvg*0.25) + (custR.score*0.15);
+
+        allBills.push({
+          file: entry.file.name, page: p+1, totalPagesInFile: entry.canvases.length,
+          isIssuerMatch, issuerTaxR, issuerTaxBBox, issuerAddrAvg, branchR,
+          nameResults, nameAvg, namePass, wordResults, addrAvg, addrPass,
+          custR, custBBox, custPass,
+          addressOk, inRange, useIncludeVat, chosenAmount,
+          overallScore, excel, rawText, canvas, hasTessWords: tessWords.length > 0,
+          copyInfo, titleText, cellTexts, stampText, lineText, stampImg, seq: allBills.length
+        });
+
+        doneUnits += 1;
+        els.progressFill.style.width = Math.round((doneUnits/Math.max(totalPages,1))*100) + '%';
+      }
+    }
+
+    // same stamp branch name as a bill whose code was read → use that code (flagged unsure)
+    const normName = n => (n||'').toLowerCase().replace(/[^a-z0-9ก-๙]/g,'');
+    const codeByName = {};
+    for(const b of allBills){
+      const k = normName(b.excel.branchName);
+      if(k.length >= 3 && b.excel.branchCode && b.excel.branchSource === 'ตราปั๊มแดง'){
+        (codeByName[k] = codeByName[k] || new Set()).add(b.excel.branchCode);
+      }
+    }
+    for(const b of allBills){
+      if(b.excel.branchCode) continue;
+      const set = codeByName[normName(b.excel.branchName)];
+      if(set && set.size === 1){
+        b.excel.branchCode = b.excel.branchOcr = [...set][0]; b.excel.branchSure = false;
+        b.excel.branchSource = 'เทียบชื่อสาขากับบิลอื่นในชุด';
+      }
+    }
+
+    // fill partial reads ("SC 003?") from codes read clearly on other pages of this batch
+    const knownCodes = [...new Set(allBills.filter(b => b.excel.branchCode && b.excel.branchSource === 'ตราปั๊มแดง').map(b => b.excel.branchCode))];
+    for(const b of allBills){
+      if(b.excel.branchCode || !b.excel.branchPartial) continue;
+      const hits = knownCodes.filter(c => c.startsWith('SC ' + b.excel.branchPartial));
+      if(hits.length === 1){
+        b.excel.branchCode = hits[0]; b.excel.branchOcr = hits[0]; b.excel.branchSure = false;
+        b.excel.branchSource = 'อ่านได้บางส่วน เทียบกับบิลอื่นในชุด';
+      }
+    }
+
+    markDuplicates();
+
+    els.statusLine.textContent = `เสร็จสิ้น — ตรวจแล้ว ${allBills.length} บิล จาก ${files.length} ไฟล์`;
+    renderTable();
+    els.exportBtn.disabled = allBills.length === 0;
+    els.runBtn.disabled = false;
+  });
+
+  els.failOnlyToggle.addEventListener('change', renderTable);
+
+  function copyLabel(ci){ return ci.type + (ci.party ? '-' + ci.party : '') + (ci.sure || ci.type === 'ไม่พบ' ? '' : ' (?)'); }
+  function copyPill(ci){
+    const mark = ci.type === 'ต้นฉบับ' ? '✅' : ci.type === 'สำเนา' ? '❌' : '⚠️';
+    const label = ci.type === 'ไม่พบ' ? 'อ่านไม่ได้' : copyLabel(ci);
+    return `<span class="copy-tick" title="${escapeHtml(label)}">${mark}<span class="sub">${escapeHtml(label)}</span></span>`;
+  }
+
+  function scoreTier(pct, threshold){
+    if(pct >= 90) return 'ok';
+    if(pct >= threshold) return 'warn';
+    return 'bad';
+  }
+
+  // invoice numbers that appear more than once across all uploaded files
+  function markDuplicates(){
+    const groups = {};
+    allBills.forEach(b => {
+      const k = (b.excel.invoiceNo||'').replace(/\s+/g,'');
+      b.dupOf = [];
+      if(k) (groups[k] = groups[k] || []).push(b);
+    });
+    Object.values(groups).forEach(g => {
+      if(g.length < 2) return;
+      g.forEach(b => { b.dupOf = g.filter(x => x !== b).map(x => `${x.file} หน้า ${x.page}`); });
+    });
+  }
+  function dupLabel(b){ return b.dupOf && b.dupOf.length ? `ซ้ำ ${b.dupOf.length+1} ใบ (${b.dupOf.join(', ')})` : ''; }
+
+  function updateSummary(){
+    const threshold = Math.max(0, Math.min(100, Number(els.threshold.value) || 0));
+    const passCount = allBills.filter(b => b.overallScore*100 >= threshold).length;
+    const issuerCount = allBills.filter(b => b.isIssuerMatch).length;
+    const origCount = allBills.filter(b => b.copyInfo.type === 'ต้นฉบับ').length;
+    const copyCount = allBills.filter(b => b.copyInfo.type === 'สำเนา').length;
+    const noBranch = allBills.filter(b => !b.excel.branchCode).length;
+    const dupCount = allBills.filter(b => b.dupOf && b.dupOf.length).length;
+    els.summaryText.textContent = `ผ่านเกณฑ์ ${passCount}/${allBills.length} บิล · เป็นเอกสารของผู้ออก ${issuerCount}/${allBills.length} · ต้นฉบับ ${origCount} / สำเนา ${copyCount}` + (noBranch ? ` · อ่านรหัสสาขาไม่ได้ ${noBranch}` : '') + (dupCount ? ` · เลขบิลซ้ำ ${dupCount} ใบ` : ' · ไม่มีเลขบิลซ้ำ');
+  }
+
+  function renderTable(){
+    els.resultsHolder.innerHTML = '';
+    if(allBills.length === 0){
+      els.resultsHolder.appendChild(els.emptyState);
+      els.resultsToolbar.style.display = 'none';
+      return;
+    }
+    els.resultsToolbar.style.display = 'flex';
+    const threshold = Math.max(0, Math.min(100, Number(els.threshold.value) || 0));
+    const failOnly = els.failOnlyToggle.checked;
+
+    const rows = allBills.map((b, idx) => ({ ...b, idx, pct: b.overallScore*100 }))
+      .filter(b => !failOnly || b.pct < threshold);
+
+    updateSummary();
+
+    if(rows.length === 0){
+      const div = document.createElement('div');
+      div.className = 'empty-state';
+      div.textContent = failOnly ? 'ไม่มีบิลที่ต่ำกว่าเกณฑ์ — ทุกรายการผ่านหมด' : 'ไม่มีข้อมูล';
+      els.resultsHolder.appendChild(div);
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'results-table';
+    table.innerHTML = `<thead><tr>
+      <th style="width:26px;">#</th><th style="width:90px;">หน้าที่</th><th style="width:130px;">เลขสาขา</th><th style="width:60px;">Jiffy</th>
+      <th style="width:110px;">ต้นฉบับ/สำเนา</th><th style="width:75px;">ชื่อลูกค้า</th><th style="width:80px;">ที่อยู่ถูกต้อง</th>
+      <th style="width:75px;">ในกำหนดวันที่</th><th style="width:80px;">ยอดที่ใช้</th>
+      <th style="width:90px;">ประเภทยอด</th><th style="width:60px;">% ตรง</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    rows.forEach((b, i) => {
+      const tier = scoreTier(b.pct, threshold);
+      const tr = document.createElement('tr');
+      tr.className = 'clickable' + (tier === 'bad' ? ' row-fail' : tier === 'warn' ? ' row-warn' : '');
+      tr.innerHTML = `
+        <td class="mono">${i+1}</td>
+        <td title="${escapeHtml(b.file)} · บิล ${escapeHtml(b.excel.invoiceNo||'—')}">หน้า ${b.page}${b.dupOf && b.dupOf.length ? ` <span class="pill bad" title="${escapeHtml(dupLabel(b))}">ซ้ำ</span>` : ''}</td>
+        <td class="bc-cell"></td>
+        <td>${b.isIssuerMatch ? '✅' : '❌'}</td>
+        <td>${copyPill(b.copyInfo)}</td>
+        <td>${b.namePass ? '✅' : '❌'}</td>
+        <td>${b.addressOk ? '✅' : '❌'}</td>
+        <td>${b.inRange ? '✅' : '❌'}</td>
+        <td class="mono">${b.chosenAmount ? (b.excel.amountSure ? escapeHtml(b.chosenAmount) : `<span class="pill warn" title="OCR ไม่แน่ใจ — กดที่แถวเพื่อตรวจ">${escapeHtml(b.chosenAmount)} ?</span>`) : '<span class="pill bad">อ่านไม่ได้</span>'}</td>
+        <td>${b.useIncludeVat ? '<span class="pill ok">รวม VAT</span>' : '<span class="pill warn">ตัด VAT</span>'}</td>
+        <td><span class="score-num ${tier}">${b.pct.toFixed(0)}%</span></td>
+      `;
+      // editable branch code: pre-filled from OCR, user can correct it
+      const bcCell = tr.querySelector('.bc-cell');
+      const bcInput = document.createElement('input');
+      bcInput.type = 'text';
+      bcInput.className = 'bc-input' + (!b.excel.branchCode ? ' empty' : (b.excel.branchSure || b.excel.branchEdited) ? '' : ' unsure');
+      bcInput.value = b.excel.branchCode || '';
+      bcInput.placeholder = '*';
+      bcInput.title = b.excel.branchEdited ? 'แก้ไขเองแล้ว' : b.excel.branchSure ? 'OCR สองรอบอ่านได้ตรงกัน' : 'ไม่แน่ใจ — กดที่แถวเพื่อดูรูปตราปั๊มแล้วแก้ไขได้';
+      bcInput.addEventListener('click', ev => ev.stopPropagation());
+      bcInput.addEventListener('change', () => {
+        const v = bcInput.value.trim().toUpperCase().replace(/^(SC|CC)\s*-?\s*/, '$1 ');
+        bcInput.value = v;
+        b.excel.branchCode = v; b.excel.branchEdited = true;
+        bcInput.className = 'bc-input' + (v ? '' : ' empty');
+        bcInput.title = 'แก้ไขเองแล้ว';
+        updateSummary();
+      });
+      bcCell.appendChild(bcInput);
+      const bnInput = document.createElement('input');
+      bnInput.type = 'text'; bnInput.className = 'bc-input bn-input';
+      bnInput.value = b.excel.branchName || ''; bnInput.placeholder = 'ชื่อสาขา';
+      bnInput.addEventListener('click', ev => ev.stopPropagation());
+      bnInput.addEventListener('change', () => {
+        b.excel.branchName = bnInput.value.trim(); b.excel.branchNameEdited = true;
+      });
+      bcCell.appendChild(bnInput);
+
+      const detailTr = document.createElement('tr');
+      detailTr.className = 'detail-row';
+      detailTr.style.display = 'none';
+      const detailTd = document.createElement('td');
+      detailTd.colSpan = 11;
+      detailTd.appendChild(buildDetailEl(b));
+      detailTr.appendChild(detailTd);
+      tr.addEventListener('click', () => { detailTr.style.display = detailTr.style.display === 'none' ? '' : 'none'; });
+      tbody.appendChild(tr);
+      tbody.appendChild(detailTr);
+    });
+    table.appendChild(tbody);
+    els.resultsHolder.appendChild(table);
+  }
+
+  function buildDetailEl(b){
+    const wrap = document.createElement('div');
+    wrap.className = 'detail-inner';
+
+    const learnNote = document.createElement('div');
+    learnNote.className = 'learn-note';
+    learnNote.textContent = 'กด ✓ ถ้าคำนี้จริงๆถูกต้อง (ระบบจะจำไว้) หรือ ✗ ถ้าจับคู่มาผิด (ระบบจะเลิกจับคู่แบบนี้)';
+    wrap.appendChild(learnNote);
+
+    const annotTitle = document.createElement('div');
+    annotTitle.className = 'detail-section-title';
+    annotTitle.textContent = 'ตำแหน่งบนภาพเอกสาร';
+    wrap.appendChild(annotTitle);
+    const annotWrap = document.createElement('div');
+    annotWrap.className = 'annot-wrap';
+    const showBtn = document.createElement('button');
+    showBtn.className = 'small';
+    showBtn.textContent = 'แสดงภาพพร้อมกรอบตำแหน่ง';
+    const imgHolder = document.createElement('div');
+    showBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      imgHolder.innerHTML = '';
+      const boxes = [];
+      b.wordResults.forEach(f => {
+        if(!f.bbox) return;
+        if(f.status === 'ตรง') boxes.push({bbox:f.bbox, ...COLORS.ok});
+        else if(f.status === 'สะกดผิด/ใกล้เคียง') boxes.push({bbox:f.bbox, ...COLORS.warn});
+      });
+      b.nameResults.forEach(f => { if(f.bbox) boxes.push({bbox:f.bbox, ...(f.score>=0.9?COLORS.ok:COLORS.warn)}); });
+      if(b.custBBox) boxes.push({bbox:b.custBBox, ...COLORS.tax});
+      if(b.issuerTaxBBox) boxes.push({bbox:b.issuerTaxBBox, ...COLORS.issuer});
+      const url = drawAnnotations(b.canvas, boxes);
+      const img = document.createElement('img'); img.src = url;
+      imgHolder.appendChild(img);
+      const legend = document.createElement('div');
+      legend.className = 'annot-legend';
+      legend.innerHTML = `
+        <span><span class="legend-sw" style="background:${COLORS.ok.stroke}"></span>ตรง</span>
+        <span><span class="legend-sw" style="background:${COLORS.warn.stroke}"></span>สะกดผิด/ใกล้เคียง</span>
+        <span><span class="legend-sw" style="background:${COLORS.tax.stroke}"></span>เลขผู้เสียภาษีลูกค้า</span>
+        <span><span class="legend-sw" style="background:${COLORS.issuer.stroke}"></span>เลขผู้เสียภาษีผู้ออก</span>
+      `;
+      imgHolder.appendChild(legend);
+      if(!b.hasTessWords){
+        const note = document.createElement('div');
+        note.className = 'annot-note';
+        note.textContent = 'หมายเหตุ: ไม่พบข้อมูลตำแหน่งคำจาก OCR สำหรับหน้านี้ — แสดงเฉพาะภาพเอกสารโดยไม่มีกรอบสี';
+        imgHolder.appendChild(note);
+      }
+    };
+    annotWrap.appendChild(showBtn);
+    annotWrap.appendChild(imgHolder);
+    wrap.appendChild(annotWrap);
+
+    const iTitle = document.createElement('div');
+    iTitle.className = 'detail-section-title';
+    iTitle.textContent = 'ผู้ออกใบเสร็จ — เช็คแบบ "มีครบไหม"';
+    wrap.appendChild(iTitle);
+    const iList = document.createElement('div');
+    iList.className = 'field-list';
+    iList.innerHTML = `
+      <div class="field-item"><div class="fname">มีเลขผู้เสียภาษีผู้ออก</div><div class="fmatch">${escapeHtml(b.issuerTaxR.match||'—')}</div><div class="fscore score-num ${b.issuerTaxR.score>=0.85?'ok':'bad'}">${(b.issuerTaxR.score*100).toFixed(0)}%</div><div></div></div>
+      <div class="field-item"><div class="fname">มีที่อยู่ผู้ออก</div><div class="fmatch">เฉลี่ย ${(b.issuerAddrAvg*100).toFixed(0)}%</div><div class="fscore score-num ${b.issuerAddrAvg>=0.6?'ok':'bad'}">${(b.issuerAddrAvg*100).toFixed(0)}%</div><div></div></div>
+      <div class="field-item"><div class="fname">มี "สาขาที่ออกใบกำกับภาษี"</div><div class="fmatch">${escapeHtml(b.branchR.match||'—')}</div><div class="fscore score-num ${b.branchR.score>=0.6?'ok':'bad'}">${(b.branchR.score*100).toFixed(0)}%</div><div></div></div>
+    `;
+    wrap.appendChild(iList);
+
+    const nTitle = document.createElement('div');
+    nTitle.className = 'detail-section-title';
+    nTitle.textContent = 'ชื่อผู้ซื้อสินค้า (น้ำหนักคะแนนสูงสุด)';
+    wrap.appendChild(nTitle);
+    const nList = document.createElement('div');
+    nList.className = 'field-list';
+    b.nameResults.forEach(f => {
+      const tier = f.score>=0.95?'ok':f.score>=0.75?'warn':'bad';
+      const row = document.createElement('div');
+      row.className = 'field-item';
+      row.innerHTML = `<div class="fname"></div><div class="fmatch">${f.match?escapeHtml(f.match):'<span style="color:var(--seal)">— ไม่พบ —</span>'}</div><div class="fscore score-num ${tier}">${(f.score*100).toFixed(0)}%</div><div></div>`;
+      nList.appendChild(row);
+    });
+    wrap.appendChild(nList);
+
+    const wTitle = document.createElement('div');
+    wTitle.className = 'detail-section-title';
+    wTitle.textContent = 'ที่อยู่ลูกค้า (คำที่ต้องมี)';
+    wrap.appendChild(wTitle);
+    const fieldList = document.createElement('div');
+    fieldList.className = 'field-list';
+    b.wordResults.forEach(f => {
+      const tier = f.score>=0.95?'ok':f.score>=0.75?'warn':'bad';
+      const row = document.createElement('div');
+      row.className = 'field-item';
+      row.innerHTML = `
+        <div class="fname">${escapeHtml(f.word)}</div>
+        <div class="fmatch">${f.match ? escapeHtml(f.match) : '<span style="color:var(--seal)">— ไม่พบ —</span>'} <span style="color:var(--ink-soft)">(${escapeHtml(f.status)})</span></div>
+        <div class="fscore score-num ${tier}">${(f.score*100).toFixed(0)}%</div>
+        <div class="fbtns"></div>
+      `;
+      const btns = row.querySelector('.fbtns');
+      const okBtn = document.createElement('button');
+      okBtn.className = 'small'; okBtn.textContent = '✓ ถูก';
+      okBtn.onclick = (ev) => { ev.stopPropagation(); if(f.match) markAlias(f.word, f.match); okBtn.classList.add('active-ok'); };
+      const badBtn = document.createElement('button');
+      badBtn.className = 'small'; badBtn.textContent = '✗ ผิด';
+      badBtn.onclick = (ev) => { ev.stopPropagation(); if(f.match) markReject(f.word, f.match); badBtn.classList.add('active-bad'); };
+      btns.appendChild(okBtn); btns.appendChild(badBtn);
+      fieldList.appendChild(row);
+    });
+    wrap.appendChild(fieldList);
+
+    const eTitle = document.createElement('div');
+    eTitle.className = 'detail-section-title';
+    eTitle.textContent = 'ข้อมูลบิล / รหัสสาขา / ยอดเงิน';
+    wrap.appendChild(eTitle);
+    const excelPrev = document.createElement('div');
+    excelPrev.className = 'excel-preview';
+    const ex = b.excel;
+    excelPrev.innerHTML = `
+      <div class="cell"><div class="k">เลขที่บิล</div><div class="v">${escapeHtml(ex.invoiceNo||'—')}</div></div>
+      <div class="cell"><div class="k">วันที่เอกสาร (ค.ศ.)</div><div class="v">${ex.date ? ex.date.toISOString().slice(0,10) : '—'}</div></div>
+      <div class="cell"><div class="k">ต้นฉบับ/สำเนา</div><div class="v">${escapeHtml(copyLabel(b.copyInfo))}</div></div>
+      <div class="cell"><div class="k">รหัสสาขา (ตราปั๊มแดง)</div><div class="v">${escapeHtml(ex.branchOcr||'—')}${ex.branchOcr && !ex.branchSure ? ' (?)' : ''}${ex.branchSource && ex.branchSource!=='ตราปั๊มแดง'?' <span style="color:var(--ink-soft)">('+escapeHtml(ex.branchSource)+')</span>':''}${ex.branchAlt?' <span style="color:var(--ink-soft)">อีกค่าที่อ่านได้: '+escapeHtml(ex.branchAlt)+'</span>':''}</div></div>
+      <div class="cell"><div class="k">ชื่อสาขา (ตราปั๊มแดง)</div><div class="v">${escapeHtml(ex.branchName||'—')}</div></div>
+      <div class="cell"><div class="k">สาขาร้าน (ตรา Jiffy)</div><div class="v">${escapeHtml(ex.storeBranch||'—')}</div></div>
+      <div class="cell"><div class="k">ก่อน VAT</div><div class="v">${escapeHtml(ex.subtotal||'—')}</div></div>
+      <div class="cell"><div class="k">VAT</div><div class="v">${escapeHtml(ex.vat||'—')}</div></div>
+      <div class="cell"><div class="k">รวมทั้งสิ้น</div><div class="v">${escapeHtml(ex.total||'—')}</div></div>
+      <div class="cell"><div class="k">รวมรายการที่มีภาษีมูลค่าเพิ่ม</div><div class="v">${escapeHtml(ex.vatable||'—')}</div></div>
+      <div class="cell"><div class="k">เลขที่บิลซ้ำ</div><div class="v">${escapeHtml(dupLabel(b)||'ไม่ซ้ำ')}</div></div>
+      <div class="cell hl"><div class="k">ยอดที่เลือกใช้</div><div class="v">${escapeHtml(b.chosenAmount||'—')} (${b.useIncludeVat?'รวม VAT':'ตัด VAT'})</div></div>
+    `;
+    wrap.appendChild(excelPrev);
+
+    const sTitle = document.createElement('div');
+    sTitle.className = 'detail-section-title';
+    sTitle.textContent = 'ตราปั๊มแดงที่ตัดออกมาอ่าน';
+    wrap.appendChild(sTitle);
+    if(b.stampImg){
+      const sImg = document.createElement('img');
+      sImg.src = b.stampImg;
+      sImg.style.cssText = 'max-width:360px;width:100%;border:1px solid var(--line);border-radius:8px;display:block;';
+      wrap.appendChild(sImg);
+      const sPre = document.createElement('pre');
+      sPre.style.cssText = "font-family:'JetBrains Mono',monospace;font-size:11.5px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin-top:8px;";
+      sPre.textContent = 'บรรทัดรหัส: ' + ((b.lineText||'').trim() || '—') + '\n\n' + ((b.stampText || '').trim() || '(OCR อ่านข้อความในตราไม่ได้)');
+      wrap.appendChild(sPre);
+    }else{
+      const none = document.createElement('div');
+      none.className = 'annot-note';
+      none.textContent = 'ไม่พบหมึกสีแดงบนหน้านี้ (สแกนขาวดำ หรือไม่มีตราปั๊ม) — รหัสสาขาอ่านจากข้อความทั้งหน้าแทน';
+      wrap.appendChild(none);
+    }
+
+    const raw = document.createElement('details');
+    raw.className = 'raw';
+    raw.innerHTML = `<summary>ดูข้อความทั้งหมดที่ OCR อ่านได้จากหน้านี้</summary><pre>${escapeHtml(b.rawText.trim())}</pre>`;
+    wrap.appendChild(raw);
+
+    return wrap;
+  }
+
+  els.exportBtn.addEventListener('click', () => {
+    if(allBills.length === 0) return;
+    const threshold = Math.max(0, Math.min(100, Number(els.threshold.value) || 0));
+    const summaryRows = allBills.filter(b=>b.isIssuerMatch).map(b => ({
+      'เลขที่บิล': b.excel.invoiceNo || '',
+      'เลขที่บิลซ้ำ': dupLabel(b) || 'ไม่ซ้ำ',
+      'รหัสสาขา': b.excel.branchCode || '',
+      'ชื่อสาขา (ตราปั๊ม)': b.excel.branchName || '',
+      'ยอดเงิน': b.chosenAmount || '',
+      'สถานะ VAT': b.useIncludeVat ? 'ไม่ตัด VAT (รวม VAT)' : 'ตัด VAT',
+      'ต้นฉบับ/สำเนา': copyLabel(b.copyInfo)
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, 'สรุป');
+
+    const detailRows = allBills.map(b => ({
+      'ไฟล์': b.file, 'หน้า': b.page,
+      'เป็นเอกสารของผู้ออก': b.isIssuerMatch ? 'ใช่' : 'ไม่ใช่',
+      'เลขที่บิล': b.excel.invoiceNo || '',
+      'เลขที่บิลซ้ำ': dupLabel(b) || 'ไม่ซ้ำ',
+      'วันที่เอกสาร (ค.ศ.)': b.excel.date ? b.excel.date.toISOString().slice(0,10) : '',
+      'ต้นฉบับ/สำเนา': copyLabel(b.copyInfo),
+      'รหัสสาขา (ตราปั๊ม)': b.excel.branchCode || '',
+      'อ่านรหัสสาขาจาก': b.excel.branchEdited ? 'แก้ไขเอง' : (b.excel.branchSource || ''),
+      'รหัสสาขาที่ OCR อ่านได้': b.excel.branchOcr || '',
+      'OCR มั่นใจ': b.excel.branchEdited ? '' : (b.excel.branchSure ? 'ใช่' : 'ไม่แน่ใจ'),
+      'ชื่อสาขา (ตราปั๊ม)': b.excel.branchName || '',
+      'สาขาร้าน (ตรา Jiffy)': b.excel.storeBranch || '',
+      'ข้อความในตราปั๊ม (OCR)': (b.stampText || '').replace(/\s+/g,' ').trim(),
+      'ชื่อลูกค้าถูกต้อง': b.namePass ? 'ใช่' : 'ไม่ใช่',
+      'ที่อยู่ลูกค้าถูกต้อง': b.addressOk ? 'ใช่' : 'ไม่ใช่',
+      'อยู่ในกำหนดวันที่': b.inRange ? 'ใช่' : 'ไม่ใช่',
+      'ก่อน VAT': b.excel.subtotal || '',
+      'VAT': b.excel.vat || '',
+      'รวมทั้งสิ้น': b.excel.total || '',
+      'รวมรายการที่มีภาษีมูลค่าเพิ่ม': b.excel.vatable || '',
+      'ยอดที่เลือกใช้': b.chosenAmount || '',
+      'ประเภทยอด': b.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
+      '% ตรง': (b.overallScore*100).toFixed(1)
+    }));
+    const ws2 = XLSX.utils.json_to_sheet(detailRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'รายละเอียด');
+
+    const statsRows = [
+      { 'รายการ': 'ยืนยันว่าถูกต้อง (✓)', 'จำนวนครั้ง': feedback.stats.confirm },
+      { 'รายการ': 'แก้ไขว่าจับคู่ผิด (✗)', 'จำนวนครั้ง': feedback.stats.reject },
+      { 'รายการ': 'รวมทั้งหมด', 'จำนวนครั้ง': feedback.stats.confirm + feedback.stats.reject }
+    ];
+    const ws3 = XLSX.utils.json_to_sheet(statsRows);
+    XLSX.utils.book_append_sheet(wb, ws3, 'สถิติการเทรน');
+
+    XLSX.writeFile(wb, 'pttrb_invoice_results.xlsx');
+  });
+
+  loadFeedback();
+})();
+</script>
+</body>
+</html>
