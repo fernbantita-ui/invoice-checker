@@ -804,7 +804,24 @@
     }
     return '';
   }
-  function extractAllAmounts(rawText){ return (rawText.match(/\d{1,3}(?:,\d{3})*\.\d{2}/g) || []); }
+  // Tesseract sometimes misreads a leading "1" as "(" in these narrow,
+  // accounting-style summary figures — e.g. printed "182.24" comes back as
+  // "(82.24" (confirmed against real CP ALL receipt OCR output). Whenever a
+  // matched amount is immediately preceded by "(" with no digit before it,
+  // that "(" is almost certainly a dropped leading "1", so restore it.
+  function fixParenLeadingOne(text, index, matched){
+    if(index > 0 && text[index-1] === '('){ return '1' + matched; }
+    return matched;
+  }
+  function extractAllAmounts(rawText){
+    const re = /\d{1,3}(?:,\d{3})*\.\d{2}/g;
+    const out = [];
+    let m;
+    while((m = re.exec(rawText)) !== null){
+      out.push(fixParenLeadingOne(rawText, m.index, m[0]));
+    }
+    return out;
+  }
   // Fuzzy line-start match: tolerant of a few OCR-misread characters within
   // a long label like "มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม" — a strict
   // line.startsWith() check fails completely the moment even one character
@@ -837,7 +854,7 @@
     }
     if(!bestLine || bestScore < minScore) return '';
     const m = bestLine.match(/\d{1,3}(?:,\d{3})*\.\d{2}/);
-    return m ? m[0] : '';
+    return m ? fixParenLeadingOne(bestLine, m.index, m[0]) : '';
   }
   function extractAmountForward(rawText, keywords, windowChars){
     for(const kw of keywords){
@@ -847,7 +864,7 @@
         if(pos === -1) break;
         const forward = rawText.slice(pos + kw.length, pos + kw.length + windowChars);
         const m = forward.match(/\d{1,3}(?:,\d{3})*\.\d{2}/);
-        if(m) return m[0];
+        if(m) return fixParenLeadingOne(forward, m.index, m[0]);
         idx = pos + kw.length;
       }
     }
@@ -884,16 +901,15 @@
     }
     if(best && bestDiff < 0.5) return best;
     // No decimal on the page actually reads back as total/1.07 — OCR likely
-    // mangled the "ก่อนภาษี" figure entirely (missing decimal point, split
-    // across lines, stray character breaking the number regex). Rather than
-    // fall back to a clearly-wrong grabbed value (or an implausible one where
-    // the "subtotal" is empty or >= the total, which a real before-VAT figure
-    // can never be), derive it directly from the fixed 7% VAT rate — this is
-    // a hard constraint of the document, not a guess.
-    if(isNaN(subtotalNum) || subtotalNum <= 0 || subtotalNum >= totalNum){
-      return (Math.round(expected*100)/100).toFixed(2);
-    }
-    return subtotal;
+    // mangled the "ก่อนภาษี" figure (missing decimal point, split across
+    // lines, stray character breaking the number regex, or a dropped leading
+    // digit that still looks like a plausible number — e.g. "82.24" instead
+    // of "182.24", which is not NaN/<=0/>=total so it would otherwise sail
+    // through unquestioned). Rather than trust a value that fails the hard
+    // 7% VAT constraint, always fall back to deriving it directly from
+    // total/1.07 — that constraint is fixed by law for every CP ALL receipt,
+    // so it's more trustworthy than a grabbed figure that doesn't satisfy it.
+    return (Math.round(expected*100)/100).toFixed(2);
   }
   function extractCpallAmounts(rawText){
     let subtotal = extractAmountFuzzy(rawText, ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม'], 0.82)
@@ -1102,19 +1118,13 @@
 
         const customerSection = extractCustomerSection(rawText, customerTaxId);
         const customerSectionMasked = maskKnownDigits(customerSection.primary, customerTaxId);
-        const customerExtendedMasked = maskKnownDigits(customerSection.extended, customerTaxId);
-        // Try the tight, end-marker-trimmed section first (safest against
-        // cross-matching). Only if that scores poorly, retry against the
-        // wider uncapped section (still starts after the customer's own tax
-        // id, so it can't reach back into the issuer's address block) — this
-        // recovers words like the province/postal code when OCR's reading
-        // order pushed them past the item-table end marker. Keep whichever
-        // scored higher.
+        // Match only against the customer's own section, above the item
+        // table — never search past it. The item table and everything below
+        // (stamp, totals, signature) is unrelated to the customer's name/
+        // address and matching against it risks a false-positive hit on
+        // unrelated text.
         function matchWordWide(word){
-          const a = matchWord(word, customerSectionMasked, tessWords);
-          if(a.score >= 0.55) return a;
-          const b = matchWord(word, customerExtendedMasked, tessWords);
-          return b.score > a.score ? b : a;
+          return matchWord(word, customerSectionMasked, tessWords);
         }
 
         const nameResults = nameWords.map(w2 => matchWordWide(w2));
@@ -1136,7 +1146,22 @@
           const r = matchWordWide(w2);
           return { word: w2, score: r.score, match: r.match, bbox: r.bbox, status: classify(w2, r.score) };
         });
-        const addrAvg = wordResults.length ? wordResults.reduce((s,x)=>s+x.score,0)/wordResults.length : 1;
+        // The trailing เขต/แขวง/จังหวัด/กรุงเทพฯ/postal-code part of the address
+        // is the last thing printed on this line on real CP ALL receipts, and
+        // the scan/crop on a lot of real-world uploads cuts off right before
+        // it — the text is genuinely absent from what OCR received, not
+        // mis-scoped. That's a scan artifact, not evidence the address is
+        // wrong, so these words count for less than the building/floor/street
+        // details that actually identify the customer.
+        const isLocationTailWord = (w) => {
+          const c = canonicalizeText(w).trim();
+          return /^\d{5}$/.test(c) || /^(เขต|แขวง|จังหวัด|กรุงเทพ)/.test(c);
+        };
+        const addrWeights = wordResults.map(r => isLocationTailWord(r.word) ? 0.25 : 1);
+        const addrWeightSum = addrWeights.reduce((s,x)=>s+x,0) || 1;
+        const addrAvg = wordResults.length
+          ? wordResults.reduce((s,x,i)=>s+x.score*addrWeights[i],0)/addrWeightSum
+          : 1;
         const addrPass = addrAvg >= 0.85;
 
         const digitsOnly = rawText.replace(/\D/g,'');
