@@ -276,8 +276,8 @@
   <footer>
     OCR ภาษาไทยทำงานผ่าน Tesseract.js (WebAssembly) ในเบราว์เซอร์ของคุณโดยตรง — การโหลดโมดูลภาษาไทยครั้งแรกอาจใช้เวลาสักครู่<br>
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
-    <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด และอยู่ใน Excel ชีท "สถิติการเทรน" — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
-    <strong>Excel:</strong> ชีทหลัก "สรุป" มี ใบที่ / เลขสาขา / ยอดเงิน — ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน
+    <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
+    <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้
   </footer>
 </div>
 
@@ -481,31 +481,31 @@
     renderHistory();
   }
   function buildWorkbookFromRows(rows, meta){
-    const summaryRows = rows.filter(r=>r.isCPAll).map(r => ({
-      'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'ยอดเงิน': r.chosenAmount, 'ผู้ตรวจ': meta.inspector
-    }));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'สรุป');
+    // Single detail sheet — pass/fail columns use ✅/❌ instead of ใช่/ไม่ใช่
+    // text, and the two name/address-match columns sit at the very end
+    // rather than beside the file/invoice identifiers, per how the user
+    // actually reads this sheet (identify + amount first, correctness
+    // checks last).
     const detailRows = rows.map(r => ({
       'ไฟล์': r.file, 'หน้า': r.page,
-      'เป็นเอกสาร CP ALL': r.isCPAll ? 'ใช่' : 'ไม่ใช่',
+      'เป็นเอกสาร CP ALL': r.isCPAll ? '✅' : '❌',
       'ประเภทเอกสาร': r.isCopy ? 'สำเนา' : 'ต้นฉบับ',
       'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'วันที่เอกสาร': r.date,
-      'ชื่อลูกค้าถูกต้อง': r.namePass ? 'ใช่' : 'ไม่ใช่',
-      'ที่อยู่ลูกค้าถูกต้อง': r.addressOk ? 'ใช่' : 'ไม่ใช่',
-      'อยู่ในกำหนดวันที่': r.inRange ? 'ใช่' : 'ไม่ใช่',
+      'อยู่ในกำหนดวันที่': r.inRange ? '✅' : '❌',
       'ก่อน VAT': r.subtotal, 'รวมทั้งสิ้น': r.total,
       'ยอดที่เลือกใช้': r.chosenAmount, 'ประเภทยอด': r.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
-      '% ตรง': (r.overallScore*100).toFixed(1), 'ผู้ตรวจ': meta.inspector
+      '% ตรง': (r.overallScore*100).toFixed(1),
+      'รายการตัดVat': r.useIncludeVat ? '' : (r.chosenAmount || ''),
+      'ชื่อลูกค้าถูกต้อง': r.namePass ? '✅' : '❌',
+      'ที่อยู่ลูกค้าถูกต้อง': r.addressOk ? '✅' : '❌'
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows), 'รายละเอียด');
-    const statsRows = [
-      { 'รายการ': 'ผู้ตรวจ', 'จำนวนครั้ง': meta.inspector },
-      { 'รายการ': 'วันเวลาที่ตรวจ', 'จำนวนครั้ง': meta.when },
-      { 'รายการ': 'ยืนยันว่าถูกต้อง (✓, สะสมทั้งเบราว์เซอร์)', 'จำนวนครั้ง': feedback.stats.confirm },
-      { 'รายการ': 'แก้ไขว่าจับคู่ผิด (✗, สะสมทั้งเบราว์เซอร์)', 'จำนวนครั้ง': feedback.stats.reject }
-    ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(statsRows), 'สถิติการเทรน');
+    const detailSheet = XLSX.utils.json_to_sheet(detailRows, {
+      header: ['ไฟล์','หน้า','เป็นเอกสาร CP ALL','ประเภทเอกสาร','ใบที่','เลขสาขา','วันที่เอกสาร',
+        'อยู่ในกำหนดวันที่','ก่อน VAT','รวมทั้งสิ้น','ยอดที่เลือกใช้','ประเภทยอด','% ตรง',
+        'รายการตัดVat','ชื่อลูกค้าถูกต้อง','ที่อยู่ลูกค้าถูกต้อง']
+    });
+    XLSX.utils.book_append_sheet(wb, detailSheet, 'รายละเอียด');
     // "กรอกเอกสาร" sheet — same column layout as the Cafe Amazon COCO/HANA
     // master data sheet the user works from (CODE / ชื่อร้าน / จำนวนเงิน /
     // รายการ / Note / รายการตัดVat / ผู้จัดการเขต). CODE, ชื่อร้าน and
@@ -772,6 +772,40 @@
       }
     }
     return best >= 0.6 ? bestBBox : null;
+  }
+  // Finds the bbox of the token right after "เลขที่" (the invoice/document
+  // number) — used to crop just that token for a dedicated re-OCR pass, the
+  // same S/5-misread fix already used for the branch-code stamp.
+  function findInvoiceNoBBox(tessWords){
+    if(!tessWords.length) return null;
+    let bestIdx=-1, bestScore=-1;
+    for(let i=0;i<tessWords.length;i++){
+      const r = similarityRatio(stripSpace('เลขที่'), stripSpace(canonicalizeText(tessWords[i].text)));
+      if(r>bestScore){ bestScore=r; bestIdx=i; }
+    }
+    if(bestScore < 0.6 || bestIdx===-1) return null;
+    for(let j=bestIdx+1; j<Math.min(tessWords.length, bestIdx+3); j++){
+      const cand = tessWords[j];
+      const digits = (cand.text||'').replace(/\D/g,'');
+      if(digits.length>=6) return cand.bbox;
+    }
+    return null;
+  }
+  function makeCropFromBBox(canvas, bbox, padding){
+    if(!bbox) return null;
+    const pad = padding||4;
+    const x0 = Math.max(0, Math.floor(bbox.x0)-pad);
+    const y0 = Math.max(0, Math.floor(bbox.y0)-pad);
+    const x1 = Math.min(canvas.width, Math.ceil(bbox.x1)+pad);
+    const y1 = Math.min(canvas.height, Math.ceil(bbox.y1)+pad);
+    const cw = x1-x0, ch = y1-y0;
+    if(cw<=0 || ch<=0) return null;
+    const crop = document.createElement('canvas');
+    crop.width = cw*2; crop.height = ch*2;
+    const cctx = crop.getContext('2d');
+    cctx.imageSmoothingEnabled = false;
+    cctx.drawImage(canvas, x0, y0, cw, ch, 0, 0, cw*2, ch*2);
+    return crop;
   }
   function matchWord(word, rawText, tessWords){
     const aliasList = feedback.aliases[word] || [];
@@ -1208,6 +1242,38 @@
         const addressOk = isCPAll && namePass && addrPass && custPass;
 
         const excel = extractExcelFields(rawText);
+        // Dedicated OCR pass on just the "เลขที่" (invoice/document number)
+        // token — the same S/5 misread Tesseract makes on the branch-code
+        // stamp also hits this printed field (confirmed against a real
+        // receipt where a printed "S137156910020002" came back as
+        // "5137156910020002" from the main pass). Re-OCR just that token
+        // with a whitelist that keeps both digits and S, so Tesseract isn't
+        // forced to snap an ambiguous S-shape to the nearest digit. Only
+        // trusted if the digit tail still matches the main pass's read —
+        // otherwise the crop may have grabbed the wrong token, and the
+        // original stays safer to keep.
+        if(excel.invoiceNo && tessWords.length){
+          const invCrop = makeCropFromBBox(canvas, findInvoiceNoBBox(tessWords), 6);
+          if(invCrop){
+            try{
+              await w.setParameters({ tessedit_char_whitelist: 'S0123456789' });
+              const invRes = await w.recognize(invCrop);
+              const invText = (invRes.data.text||'').trim();
+              const m = invText.match(/S?\d{6,20}/i);
+              if(m){
+                const refined = m[0].toUpperCase();
+                const refinedDigits = refined.replace(/^S/,'');
+                const origDigits = excel.invoiceNo.replace(/^[A-Za-z]/,'');
+                if(similarityRatio(refinedDigits, origDigits) >= 0.85){
+                  excel.invoiceNo = refined;
+                }
+              }
+            }catch(e){ console.warn('invoice no OCR failed', e); }
+            finally{
+              try{ await w.setParameters({ tessedit_char_whitelist: '' }); }catch(e){}
+            }
+          }
+        }
         // Dedicated OCR pass on the colour-thresholded stamp crop — the main
         // page OCR often can't read the inked stamp even when it nails the
         // printed text, so branch code gets a second, stamp-specific chance
