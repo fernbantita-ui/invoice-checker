@@ -63,6 +63,14 @@
 
   #fileList{margin-top:12px; display:flex; flex-direction:column; gap:6px;}
   .file-chip{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; background:#FCFBF8; border:1px solid var(--line); border-radius:6px; padding:6px 10px;}
+
+  select#inspectorSelect, select#historyFilter{font-family:'Sarabun',sans-serif; font-size:12.8px; border:1px solid var(--line); border-radius:6px; padding:8px 9px; width:100%; background:#fff; color:var(--ink);}
+  .history-item{border:1px solid var(--line); border-radius:8px; padding:10px 12px; background:#FCFBF8; font-size:12.3px;}
+  .history-item .hrow1{display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;}
+  .history-item .hwho{font-weight:600; color:var(--ink);}
+  .history-item .hwhen{color:var(--ink-soft); font-family:'JetBrains Mono',monospace; font-size:11px;}
+  .history-item .hmeta{color:var(--ink-soft); margin-top:4px;}
+  .history-item .hactions{display:flex; gap:6px; margin-top:8px;}
   .file-chip button{border:none; background:none; color:var(--seal); cursor:pointer; font-size:14px; line-height:1; padding:0 2px;}
 
   button.primary{margin-top:14px; width:100%; padding:11px 16px; border:none; border-radius:7px; background:var(--seal); color:#fff; font-family:'Sarabun',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:transform .08s, background .15s;}
@@ -205,6 +213,17 @@
 
       <div class="panel">
         <h2>4 · อัปโหลดเอกสาร (PDF)</h2>
+        <div class="field-row" style="margin-top:0;">
+          <label>ผู้ตรวจ</label>
+          <select id="inspectorSelect">
+            <option value="">— เลือกผู้ตรวจ —</option>
+            <option value="เอส">เอส</option>
+            <option value="ปุณ">ปุณ</option>
+            <option value="เฟิร์น">เฟิร์น</option>
+            <option value="__other__">อื่นๆ...</option>
+          </select>
+          <input type="text" id="inspectorOther" placeholder="พิมพ์ชื่อผู้ตรวจ" style="margin-top:6px; display:none;">
+        </div>
         <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="อัปโหลดไฟล์ PDF">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
           <p><strong>คลิกเพื่อเลือกไฟล์</strong> หรือลากไฟล์ PDF มาวางที่นี่</p>
@@ -221,6 +240,18 @@
           <span>แก้ไขผิด <b class="badge" id="statReject">0</b></span>
         </div>
         <button class="ghost" id="resetTrainBtn" style="margin-top:6px;">ล้างข้อมูลเทรนทั้งหมด</button>
+      </div>
+
+      <div class="panel">
+        <h2>5 · ประวัติการตรวจ</h2>
+        <p class="hint">บันทึกไว้ในเบราว์เซอร์นี้ทุกครั้งที่กด "ตรวจสอบเอกสารทั้งหมด" — ดูย้อนหลังและดาวน์โหลด Excel ของแต่ละรอบได้ กรองตามผู้ตรวจได้</p>
+        <div class="field-row" style="margin-top:0;">
+          <select id="historyFilter">
+            <option value="">ทุกคน</option>
+          </select>
+        </div>
+        <div id="historyList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
+        <button class="ghost" id="clearHistoryBtn" style="margin-top:10px;">ล้างประวัติทั้งหมด</button>
       </div>
     </div>
 
@@ -271,7 +302,9 @@
    'dateEndInput','threshold','dropzone','fileInput','fileList',
    'runBtn','clearBtn','resultsHolder','emptyState','resultsToolbar','failOnlyToggle',
    'summaryText','statusLine','progressFill','exportBtn','copySection','copyHolder',
-   'copyCount','statConfirm','statReject','resetTrainBtn'].forEach(id => els[id] = document.getElementById(id));
+   'copyCount','statConfirm','statReject','resetTrainBtn',
+   'inspectorSelect','inspectorOther','historyFilter','historyList','clearHistoryBtn'
+  ].forEach(id => els[id] = document.getElementById(id));
 
   // ---------- persistent feedback ("training") ----------
   // Stored via the browser's own localStorage under a fixed key, so it
@@ -356,6 +389,158 @@
     if(!confirm('ล้างข้อมูลเทรนทั้งหมด (คำที่เคยกด ✓/✗ ไว้) ในเบราว์เซอร์นี้ถาวร — ใช้เมื่อสงสัยว่ามีการกดผิดสะสมไว้ ต้องการดำเนินการต่อไหม?')) return;
     feedback = { aliases: {}, rejects: {}, stats: { confirm: 0, reject: 0 } };
     saveFeedback();
+  });
+
+  // ---------- inspector ("ผู้ตรวจ") selection ----------
+  // Remembered per-browser so it doesn't need re-picking every visit, same
+  // spirit as the training feedback above.
+  const INSPECTOR_KEY = 'cpall-last-inspector';
+  (function initInspector(){
+    let last = '';
+    try{ last = localStorage.getItem(INSPECTOR_KEY) || ''; }catch(e){}
+    const known = ['เอส','ปุณ','เฟิร์น'];
+    if(last && known.includes(last)){
+      els.inspectorSelect.value = last;
+    } else if(last){
+      els.inspectorSelect.value = '__other__';
+      els.inspectorOther.style.display = '';
+      els.inspectorOther.value = last;
+    }
+  })();
+  els.inspectorSelect.addEventListener('change', () => {
+    els.inspectorOther.style.display = els.inspectorSelect.value === '__other__' ? '' : 'none';
+  });
+  function currentInspector(){
+    const v = els.inspectorSelect.value;
+    const name = v === '__other__' ? els.inspectorOther.value.trim() : v;
+    if(name){ try{ localStorage.setItem(INSPECTOR_KEY, name); }catch(e){} }
+    return name;
+  }
+
+  // ---------- run history ----------
+  // One entry per completed run, stored client-side only (same as the
+  // training data — nothing leaves the browser). Each entry carries just
+  // enough of each bill's result to regenerate the exact same Excel later,
+  // not the full OCR text/bounding boxes (those would bloat localStorage
+  // fast across many 40-50 page batches).
+  const HISTORY_KEY = 'cpall-run-history-v1';
+  let runHistory = [];
+  function loadHistory(){
+    try{
+      const raw = localStorage.getItem(HISTORY_KEY);
+      runHistory = raw ? JSON.parse(raw) : [];
+    }catch(e){ runHistory = []; }
+  }
+  function saveHistory(){
+    try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(runHistory)); }
+    catch(e){ console.warn('history save failed (storage full?) — trimming oldest entries', e);
+      // Storage quota hit (common after many large batches) — drop the
+      // oldest runs and retry once rather than silently losing this run.
+      runHistory = runHistory.slice(-10);
+      try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(runHistory)); }catch(e2){}
+    }
+  }
+  function billToHistoryRow(b){
+    return {
+      file: b.file, page: b.page, isCPAll: b.isCPAll, isCopy: !!b.isCopy,
+      invoiceNo: b.excel.invoiceNo||'', branchCode: b.excel.branchCode||'',
+      date: b.excel.date ? b.excel.date.toISOString().slice(0,10) : '',
+      namePass: b.namePass, addressOk: b.addressOk, inRange: b.inRange,
+      subtotal: b.excel.subtotal||'', total: b.excel.total||'',
+      chosenAmount: b.chosenAmount||'', useIncludeVat: b.useIncludeVat,
+      overallScore: b.overallScore
+    };
+  }
+  function recordRunToHistory(inspector, fileNames, bills){
+    const cpAllBills = bills.filter(b=>b.isCPAll);
+    const passCount = bills.filter(b => b.overallScore*100 >= (Number(els.threshold.value)||0)).length;
+    const entry = {
+      id: 'run_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      ts: new Date().toISOString(),
+      inspector: inspector || '(ไม่ระบุ)',
+      fileNames,
+      totalBills: bills.length,
+      cpAllCount: cpAllBills.length,
+      passCount,
+      rows: bills.map(billToHistoryRow)
+    };
+    runHistory.unshift(entry);
+    saveHistory();
+    renderHistory();
+  }
+  function buildWorkbookFromRows(rows, meta){
+    const summaryRows = rows.filter(r=>r.isCPAll).map(r => ({
+      'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'ยอดเงิน': r.chosenAmount, 'ผู้ตรวจ': meta.inspector
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'สรุป');
+    const detailRows = rows.map(r => ({
+      'ไฟล์': r.file, 'หน้า': r.page,
+      'เป็นเอกสาร CP ALL': r.isCPAll ? 'ใช่' : 'ไม่ใช่',
+      'ประเภทเอกสาร': r.isCopy ? 'สำเนา' : 'ต้นฉบับ',
+      'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'วันที่เอกสาร': r.date,
+      'ชื่อลูกค้าถูกต้อง': r.namePass ? 'ใช่' : 'ไม่ใช่',
+      'ที่อยู่ลูกค้าถูกต้อง': r.addressOk ? 'ใช่' : 'ไม่ใช่',
+      'อยู่ในกำหนดวันที่': r.inRange ? 'ใช่' : 'ไม่ใช่',
+      'ก่อน VAT': r.subtotal, 'รวมทั้งสิ้น': r.total,
+      'ยอดที่เลือกใช้': r.chosenAmount, 'ประเภทยอด': r.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
+      '% ตรง': (r.overallScore*100).toFixed(1), 'ผู้ตรวจ': meta.inspector
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows), 'รายละเอียด');
+    const statsRows = [
+      { 'รายการ': 'ผู้ตรวจ', 'จำนวนครั้ง': meta.inspector },
+      { 'รายการ': 'วันเวลาที่ตรวจ', 'จำนวนครั้ง': meta.when },
+      { 'รายการ': 'ยืนยันว่าถูกต้อง (✓, สะสมทั้งเบราว์เซอร์)', 'จำนวนครั้ง': feedback.stats.confirm },
+      { 'รายการ': 'แก้ไขว่าจับคู่ผิด (✗, สะสมทั้งเบราว์เซอร์)', 'จำนวนครั้ง': feedback.stats.reject }
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(statsRows), 'สถิติการเทรน');
+    return wb;
+  }
+  function downloadHistoryEntry(entry){
+    const wb = buildWorkbookFromRows(entry.rows, { inspector: entry.inspector, when: new Date(entry.ts).toLocaleString('th-TH') });
+    const stamp = entry.ts.slice(0,10);
+    XLSX.writeFile(wb, `cpall_invoice_results_${stamp}_${entry.inspector}.xlsx`);
+  }
+  function renderHistory(){
+    // Filter dropdown options (keep current selection if still valid)
+    const names = Array.from(new Set(runHistory.map(e=>e.inspector))).sort();
+    const prevFilter = els.historyFilter.value;
+    els.historyFilter.innerHTML = '<option value="">ทุกคน</option>' +
+      names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+    els.historyFilter.value = names.includes(prevFilter) ? prevFilter : '';
+
+    const filterName = els.historyFilter.value;
+    const shown = filterName ? runHistory.filter(e=>e.inspector===filterName) : runHistory;
+
+    if(shown.length === 0){
+      els.historyList.innerHTML = '<div class="hint">ยังไม่มีประวัติ — ผลจะถูกบันทึกอัตโนมัติทุกครั้งที่กด "ตรวจสอบเอกสารทั้งหมด"</div>';
+      return;
+    }
+    els.historyList.innerHTML = '';
+    for(const entry of shown){
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      const when = new Date(entry.ts).toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' });
+      div.innerHTML = `
+        <div class="hrow1"><span class="hwho">${escapeHtml(entry.inspector)}</span><span class="hwhen">${escapeHtml(when)}</span></div>
+        <div class="hmeta">${entry.fileNames.length} ไฟล์ · ${entry.totalBills} บิล (CP ALL ${entry.cpAllCount}) · ผ่านเกณฑ์ ${entry.passCount}/${entry.totalBills}</div>
+        <div class="hactions">
+          <button class="small" data-act="dl">⬇ Excel</button>
+          <button class="small" data-act="del">ลบ</button>
+        </div>`;
+      div.querySelector('[data-act="dl"]').addEventListener('click', () => downloadHistoryEntry(entry));
+      div.querySelector('[data-act="del"]').addEventListener('click', () => {
+        if(!confirm('ลบประวัติรายการนี้?')) return;
+        runHistory = runHistory.filter(e=>e.id!==entry.id);
+        saveHistory(); renderHistory();
+      });
+      els.historyList.appendChild(div);
+    }
+  }
+  els.historyFilter.addEventListener('change', renderHistory);
+  els.clearHistoryBtn.addEventListener('click', () => {
+    if(!confirm('ลบประวัติการตรวจทั้งหมดในเบราว์เซอร์นี้ถาวร ต้องการดำเนินการต่อไหม?')) return;
+    runHistory = []; saveHistory(); renderHistory();
   });
 
   // ---------- text utils ----------
@@ -844,6 +1029,12 @@
   // ---------- main run ----------
   els.runBtn.addEventListener('click', async () => {
     if(queuedFiles.length === 0) return;
+    const inspector = currentInspector();
+    if(!inspector){
+      alert('กรุณาเลือกผู้ตรวจก่อนเริ่มตรวจสอบ');
+      els.inspectorSelect.focus();
+      return;
+    }
     els.runBtn.disabled = true;
     allBills = [];
     els.resultsHolder.innerHTML = '';
@@ -994,6 +1185,9 @@
     renderCopySection();
     els.exportBtn.disabled = allBills.length === 0;
     els.runBtn.disabled = false;
+    if(allBills.length > 0){
+      recordRunToHistory(inspector, files.map(f=>f.name), allBills);
+    }
   });
 
   els.failOnlyToggle.addEventListener('change', renderTable);
@@ -1231,46 +1425,16 @@
 
   els.exportBtn.addEventListener('click', () => {
     if(allBills.length === 0) return;
-    const summaryRows = allBills.filter(b=>b.isCPAll).map(b => ({
-      'ใบที่': b.excel.invoiceNo || '',
-      'เลขสาขา': b.excel.branchCode || '',
-      'ยอดเงิน': b.chosenAmount || ''
-    }));
-    const ws1 = XLSX.utils.json_to_sheet(summaryRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, 'สรุป');
-
-    const detailRows = allBills.map(b => ({
-      'ไฟล์': b.file, 'หน้า': b.page,
-      'เป็นเอกสาร CP ALL': b.isCPAll ? 'ใช่' : 'ไม่ใช่',
-      'ประเภทเอกสาร': b.isCopy ? 'สำเนา' : 'ต้นฉบับ',
-      'ใบที่': b.excel.invoiceNo || '',
-      'เลขสาขา': b.excel.branchCode || '',
-      'วันที่เอกสาร': b.excel.date ? b.excel.date.toISOString().slice(0,10) : '',
-      'ชื่อลูกค้าถูกต้อง': b.namePass ? 'ใช่' : 'ไม่ใช่',
-      'ที่อยู่ลูกค้าถูกต้อง': b.addressOk ? 'ใช่' : 'ไม่ใช่',
-      'อยู่ในกำหนดวันที่': b.inRange ? 'ใช่' : 'ไม่ใช่',
-      'ก่อน VAT': b.excel.subtotal || '',
-      'รวมทั้งสิ้น': b.excel.total || '',
-      'ยอดที่เลือกใช้': b.chosenAmount || '',
-      'ประเภทยอด': b.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
-      '% ตรง': (b.overallScore*100).toFixed(1)
-    }));
-    const ws2 = XLSX.utils.json_to_sheet(detailRows);
-    XLSX.utils.book_append_sheet(wb, ws2, 'รายละเอียด');
-
-    const statsRows = [
-      { 'รายการ': 'ยืนยันว่าถูกต้อง (✓)', 'จำนวนครั้ง': feedback.stats.confirm },
-      { 'รายการ': 'แก้ไขว่าจับคู่ผิด (✗)', 'จำนวนครั้ง': feedback.stats.reject },
-      { 'รายการ': 'รวมทั้งหมด (สะสมตลอดการใช้งาน)', 'จำนวนครั้ง': feedback.stats.confirm + feedback.stats.reject }
-    ];
-    const ws3 = XLSX.utils.json_to_sheet(statsRows);
-    XLSX.utils.book_append_sheet(wb, ws3, 'สถิติการเทรน');
-
-    XLSX.writeFile(wb, 'cpall_invoice_results.xlsx');
+    const inspector = currentInspector() || '(ไม่ระบุ)';
+    const rows = allBills.map(billToHistoryRow);
+    const wb = buildWorkbookFromRows(rows, { inspector, when: new Date().toLocaleString('th-TH') });
+    const stamp = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `cpall_invoice_results_${stamp}.xlsx`);
   });
 
   loadFeedback();
+  loadHistory();
+  renderHistory();
 })();
 </script>
 </body>
