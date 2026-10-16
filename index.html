@@ -457,6 +457,7 @@
       file: b.file, page: b.page, isCPAll: b.isCPAll, isCopy: !!b.isCopy,
       invoiceNo: b.excel.invoiceNo||'', branchCode: b.excel.branchCode||'',
       date: b.excel.date ? b.excel.date.toISOString().slice(0,10) : '',
+      itemDescription: b.excel.itemDescription||'',
       namePass: b.namePass, addressOk: b.addressOk, inRange: b.inRange,
       subtotal: b.excel.subtotal||'', total: b.excel.total||'',
       chosenAmount: b.chosenAmount||'', useIncludeVat: b.useIncludeVat,
@@ -492,6 +493,7 @@
       'เป็นเอกสาร CP ALL': r.isCPAll ? '✅' : '❌',
       'ประเภทเอกสาร': r.isCopy ? 'สำเนา' : 'ต้นฉบับ',
       'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'วันที่เอกสาร': r.date,
+      'รายการสินค้า': r.itemDescription || '',
       'อยู่ในกำหนดวันที่': r.inRange ? '✅' : '❌',
       'ก่อน VAT': r.subtotal, 'รวมทั้งสิ้น': r.total,
       'ยอดที่เลือกใช้': r.chosenAmount, 'ประเภทยอด': r.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
@@ -502,7 +504,7 @@
     }));
     const detailSheet = XLSX.utils.json_to_sheet(detailRows, {
       header: ['ไฟล์','หน้า','เป็นเอกสาร CP ALL','ประเภทเอกสาร','ใบที่','เลขสาขา','วันที่เอกสาร',
-        'อยู่ในกำหนดวันที่','ก่อน VAT','รวมทั้งสิ้น','ยอดที่เลือกใช้','ประเภทยอด','% ตรง',
+        'รายการสินค้า','อยู่ในกำหนดวันที่','ก่อน VAT','รวมทั้งสิ้น','ยอดที่เลือกใช้','ประเภทยอด','% ตรง',
         'รายการตัดVat','ชื่อลูกค้าถูกต้อง','ที่อยู่ลูกค้าถูกต้อง']
     });
     XLSX.utils.book_append_sheet(wb, detailSheet, 'รายละเอียด');
@@ -773,24 +775,6 @@
     }
     return best >= 0.6 ? bestBBox : null;
   }
-  // Finds the bbox of the token right after "เลขที่" (the invoice/document
-  // number) — used to crop just that token for a dedicated re-OCR pass, the
-  // same S/5-misread fix already used for the branch-code stamp.
-  function findInvoiceNoBBox(tessWords){
-    if(!tessWords.length) return null;
-    let bestIdx=-1, bestScore=-1;
-    for(let i=0;i<tessWords.length;i++){
-      const r = similarityRatio(stripSpace('เลขที่'), stripSpace(canonicalizeText(tessWords[i].text)));
-      if(r>bestScore){ bestScore=r; bestIdx=i; }
-    }
-    if(bestScore < 0.6 || bestIdx===-1) return null;
-    for(let j=bestIdx+1; j<Math.min(tessWords.length, bestIdx+3); j++){
-      const cand = tessWords[j];
-      const digits = (cand.text||'').replace(/\D/g,'');
-      if(digits.length>=6) return cand.bbox;
-    }
-    return null;
-  }
   function makeCropFromBBox(canvas, bbox, padding){
     if(!bbox) return null;
     const pad = padding||4;
@@ -992,6 +976,21 @@
     subtotal = correctSubtotalWithVatMath(subtotal, total, all);
     return { subtotal, total };
   }
+  // Best-effort grab of the first actual item row's description (e.g.
+  // "โซดาสิงห์ 325 มล. แพ็ค 6") from under the "รายการสินค้า" column header —
+  // skips past any other header leftovers and pure-number lines first.
+  function extractItemDescription(rawText){
+    const lines = rawText.split('\n').map(l=>l.trim()).filter(Boolean);
+    const headerIdx = lines.findIndex(l => l.includes('รายการสินค้า') || similarityRatio(stripSpace('รายการสินค้า'), stripSpace(l)) >= 0.75);
+    if(headerIdx === -1) return '';
+    for(let i=headerIdx+1; i<Math.min(lines.length, headerIdx+8); i++){
+      const l = lines[i];
+      if(/^[\d.,\s]+$/.test(l)) continue;
+      if(/ราคาต่อหน่วย|ราคาภาษีมูลค่าเพิ่ม|^จำนวน$|^NO\.?$/i.test(l)) continue;
+      if(/[ก-๙]/.test(l)) return l.replace(/^\d+\s+\d+\s+/, '').trim();
+    }
+    return '';
+  }
   function extractExcelFields(rawText){
     const amounts = extractCpallAmounts(rawText);
     return {
@@ -999,7 +998,8 @@
       date: extractInvoiceDate(rawText),
       branchCode: extractBranchCode(rawText),
       subtotal: amounts.subtotal,
-      total: amounts.total
+      total: amounts.total,
+      itemDescription: extractItemDescription(rawText)
     };
   }
   function dateOnOrBefore(d, endStr){
@@ -1242,18 +1242,26 @@
         const addressOk = isCPAll && namePass && addrPass && custPass;
 
         const excel = extractExcelFields(rawText);
-        // Dedicated OCR pass on just the "เลขที่" (invoice/document number)
-        // token — the same S/5 misread Tesseract makes on the branch-code
-        // stamp also hits this printed field (confirmed against a real
-        // receipt where a printed "S137156910020002" came back as
-        // "5137156910020002" from the main pass). Re-OCR just that token
+        // Dedicated OCR pass on just the invoice/document number token — the
+        // same S/5 misread Tesseract makes on the branch-code stamp also
+        // hits this printed field (confirmed against a real receipt where a
+        // printed "S043886910010001" came back as "5043886910010001" from
+        // the main pass). Locate the token by matching the DIGITS already
+        // extracted (findBboxDigits — tolerant of the single ambiguous
+        // leading character via its LCS-based similarity over the full ~15
+        // digit run) rather than by searching for the "เลขที่" label itself,
+        // since that label also appears a second time further down the page
+        // (the "...อย่างย่อเลขที่ : ..." cancellation line) and a fuzzy label
+        // search could lock onto the wrong occurrence. Then re-OCR that crop
         // with a whitelist that keeps both digits and S, so Tesseract isn't
         // forced to snap an ambiguous S-shape to the nearest digit. Only
         // trusted if the digit tail still matches the main pass's read —
         // otherwise the crop may have grabbed the wrong token, and the
         // original stays safer to keep.
         if(excel.invoiceNo && tessWords.length){
-          const invCrop = makeCropFromBBox(canvas, findInvoiceNoBBox(tessWords), 6);
+          const origDigits = excel.invoiceNo.replace(/^[A-Za-z]/,'');
+          const invBBox = origDigits.length>=6 ? findBboxDigits(origDigits, tessWords) : null;
+          const invCrop = makeCropFromBBox(canvas, invBBox, 6);
           if(invCrop){
             try{
               await w.setParameters({ tessedit_char_whitelist: 'S0123456789' });
@@ -1263,7 +1271,6 @@
               if(m){
                 const refined = m[0].toUpperCase();
                 const refinedDigits = refined.replace(/^S/,'');
-                const origDigits = excel.invoiceNo.replace(/^[A-Za-z]/,'');
                 if(similarityRatio(refinedDigits, origDigits) >= 0.85){
                   excel.invoiceNo = refined;
                 }
@@ -1406,7 +1413,7 @@
       <th style="width:60px;">CP ALL</th>
       <th style="width:80px;">ที่อยู่ถูกต้อง</th>
       <th style="width:75px;">ในกำหนดวันที่</th><th style="width:80px;">ยอดที่ใช้</th>
-      <th style="width:90px;">ประเภทยอด</th><th style="width:60px;">% ตรง</th></tr></thead>`;
+      <th style="width:90px;">ประเภทยอด</th><th>รายการสินค้า</th><th style="width:60px;">% ตรง</th></tr></thead>`;
     const tbody = document.createElement('tbody');
 
     rows.forEach((b, i) => {
@@ -1424,13 +1431,14 @@
         <td>${b.inRange ? '✅' : '❌'}</td>
         <td class="mono">${escapeHtml(b.chosenAmount || '—')}</td>
         <td>${b.useIncludeVat ? '<span class="pill ok">รวม VAT</span>' : '<span class="pill warn">ตัด VAT</span>'}</td>
+        <td>${escapeHtml(b.excel.itemDescription || '—')}</td>
         <td><span class="score-num ${tier}">${b.pct.toFixed(0)}%</span></td>
       `;
       const detailTr = document.createElement('tr');
       detailTr.className = 'detail-row';
       detailTr.style.display = 'none';
       const detailTd = document.createElement('td');
-      detailTd.colSpan = 11;
+      detailTd.colSpan = 12;
       detailTd.appendChild(buildDetailEl(b));
       detailTr.appendChild(detailTd);
       tr.addEventListener('click', () => { detailTr.style.display = detailTr.style.display === 'none' ? '' : 'none'; });
