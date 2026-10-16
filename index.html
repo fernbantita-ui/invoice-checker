@@ -189,7 +189,7 @@
         <div class="field-row">
           <label>ที่อยู่/คำที่ต้องมี (อิสระ ไม่ต้องเรียง) — B/บี และ ชั้น/ชั้นที่ ถือว่าเหมือนกัน</label>
           <textarea id="refText">สำนักงานใหญ่ 555/2 ศูนย์เอนเนอร์ยี่คอมเพล็กซ์ อาคารบี ชั้น 12
-ถนนวิภาวดีรังสิต แขวงจตุจักร เขตจตุจักร กรุงเทพฯ 10900</textarea>
+ถนนวิภาวดีรังสิต แขวงจตุจักร จังหวัดกรุงเทพฯ 10900</textarea>
         </div>
         <div class="field-row">
           <label>เลขประจำตัวผู้เสียภาษีลูกค้า</label>
@@ -1247,6 +1247,15 @@
     return 'bad';
   }
 
+  // Classifies the file as milk or soda from its filename — the user names
+  // uploaded PDFs this way on purpose (e.g. "Milk-....pdf", "soda-....pdf"),
+  // so it's a reliable, cheap signal without needing to parse OCR item text.
+  function classifyProductEmoji(fileName){
+    const f = (fileName||'').toLowerCase();
+    if(/milk|นม/.test(f)) return '🥛';
+    if(/soda|โซดา|ซ่า/.test(f)) return '🥤';
+    return '';
+  }
   function renderTable(){
     els.resultsHolder.innerHTML = '';
     if(allBills.length === 0){
@@ -1279,9 +1288,10 @@
     const table = document.createElement('table');
     table.className = 'results-table';
     table.innerHTML = `<thead><tr>
-      <th style="width:26px;">#</th><th>ไฟล์</th><th style="width:65px;">เลขสาขา</th>
+      <th style="width:26px;">#</th><th style="width:28px;"></th><th>ไฟล์</th>
+      <th style="width:90px;">เลขที่ใบกำกับ</th><th style="width:65px;">เลขสาขา</th>
       <th style="width:60px;">CP ALL</th>
-      <th style="width:75px;">ชื่อลูกค้า</th><th style="width:80px;">ที่อยู่ถูกต้อง</th>
+      <th style="width:80px;">ที่อยู่ถูกต้อง</th>
       <th style="width:75px;">ในกำหนดวันที่</th><th style="width:80px;">ยอดที่ใช้</th>
       <th style="width:90px;">ประเภทยอด</th><th style="width:60px;">% ตรง</th></tr></thead>`;
     const tbody = document.createElement('tbody');
@@ -1292,10 +1302,11 @@
       tr.className = 'clickable' + (tier === 'bad' ? ' row-fail' : tier === 'warn' ? ' row-warn' : '');
       tr.innerHTML = `
         <td class="mono">${i+1}</td>
+        <td style="text-align:center;">${classifyProductEmoji(b.file)}</td>
         <td>${escapeHtml(b.file)}${b.isCopy ? ' <span class="pill copy">สำเนา</span>' : ''}</td>
+        <td class="mono">${escapeHtml(b.excel.invoiceNo||'—')}</td>
         <td class="mono">${escapeHtml(b.excel.branchCode||'—')}</td>
         <td>${b.isCPAll ? '✅' : '❌'}</td>
-        <td>${b.namePass ? '✅' : '❌'}</td>
         <td>${b.addressOk ? '✅' : '❌'}</td>
         <td>${b.inRange ? '✅' : '❌'}</td>
         <td class="mono">${escapeHtml(b.chosenAmount || '—')}</td>
@@ -1306,7 +1317,7 @@
       detailTr.className = 'detail-row';
       detailTr.style.display = 'none';
       const detailTd = document.createElement('td');
-      detailTd.colSpan = 10;
+      detailTd.colSpan = 11;
       detailTd.appendChild(buildDetailEl(b));
       detailTr.appendChild(detailTd);
       tr.addEventListener('click', () => { detailTr.style.display = detailTr.style.display === 'none' ? '' : 'none'; });
