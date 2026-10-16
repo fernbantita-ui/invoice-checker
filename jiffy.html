@@ -1450,6 +1450,8 @@
 
   // ---------- Excel rows (also what history stores, so a past run re-exports identically) ----------
   const tick = ok => ok ? '✅' : '❌';
+  // Excel: product labels without emoji ("ไข่ไก่ 🥚" → "ไข่ไก่")
+  const plainItems = it => ((it && it.label) || '').replace(/\s*[\u{1F300}-\u{1FAFF}]\uFE0F?/gu, '').trim();
   const copyCell = ci => ci.type === 'ต้นฉบับ' ? '✅ ' + copyLabel(ci) : ci.type === 'สำเนา' ? '❌ ' + copyLabel(ci) : '⚠️ อ่านไม่ได้';
   // same columns as the CP ALL "รายละเอียด" sheet
   const DETAIL_HEADER = ['ไฟล์','หน้า','ใบที่','เลขสาขา','วันที่เอกสาร','รายการสินค้า','ก่อน VAT','รวมทั้งสิ้น',
@@ -1460,7 +1462,7 @@
       'ใบที่': b.excel.invoiceNo || '',
       'เลขสาขา': b.excel.branchCode || '',
       'วันที่เอกสาร': fmtDate(b.excel.date),
-      'รายการสินค้า': (b.excel.items && b.excel.items.label) || '',
+      'รายการสินค้า': plainItems(b.excel.items),
       'ก่อน VAT': b.excel.subtotal || '',
       'รวมทั้งสิ้น': b.excel.vatable || b.excel.total || '',
       'ยอดที่เลือกใช้': b.chosenAmount || '',
@@ -1488,7 +1490,7 @@
         'CODE': digits ? String(parseInt(digits,10)) : '',
         'ชื่อร้าน': info ? info.name : '',
         'จำนวนเงิน': b.chosenAmount || '',
-        'รายการ': (b.excel.items && b.excel.items.label) || '',
+        'รายการ': plainItems(b.excel.items),
         'Note': notes.join(', '),
         'รายการตัด Vat': b.useIncludeVat ? '' : (b.chosenAmount || ''),
         'ผู้จัดการเขต': info ? info.manager : '',
