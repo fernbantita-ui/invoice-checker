@@ -281,7 +281,7 @@
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
     <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
     <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้<br>
-    <span style="opacity:0.5;">build 2026-10-16-5</span>
+    <span style="opacity:0.5;">build 2026-10-16-7</span>
   </footer>
 </div>
 
@@ -525,19 +525,23 @@
     // row itself is always kept: the amount and item category are the part
     // the user actually needs from this sheet every time, per their own
     // instruction that a missing branch match is fine.
+    // A row only earns a place on this sheet if the branch lookup actually
+    // found a district manager — a row with no ผู้จัดการเขต is dropped
+    // entirely rather than kept with a blank cell, per the user's own call.
     const fillRows = rows.filter(r=>r.isCPAll).map(r => {
       const digits = String(r.branchCode||'').replace(/\D/g,'');
       const info = lookupBranchInfo(r.branchCode);
+      if(!info || !info.manager) return null;
       return {
         'CODE': digits || '',
-        'ชื่อร้าน': info ? info.name : '',
+        'ชื่อร้าน': info.name,
         'จำนวนเงิน': r.chosenAmount || '',
         'รายการ': classifyProduct(r.itemDescription, r.file).label,
         'Note': '',
         'รายการตัดVat': r.useIncludeVat ? '' : (r.chosenAmount || ''),
-        'ผู้จัดการเขต': info ? info.manager : ''
+        'ผู้จัดการเขต': info.manager
       };
-    });
+    }).filter(Boolean);
     const fillSheet = XLSX.utils.json_to_sheet(fillRows, {
       header: ['CODE','ชื่อร้าน','จำนวนเงิน','รายการ','Note','รายการตัดVat','ผู้จัดการเขต']
     });
