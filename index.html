@@ -517,26 +517,27 @@
     XLSX.utils.book_append_sheet(wb, detailSheet, 'รายละเอียด');
     // "กรอกเอกสาร" sheet — same column layout as the Cafe Amazon COCO/HANA
     // master data sheet the user works from (CODE / ชื่อร้าน / จำนวนเงิน /
-    // รายการ / Note / รายการตัดVat / ผู้จัดการเขต). CODE, ชื่อร้าน and
-    // ผู้จัดการเขต are auto-filled from the embedded branch master data
-    // whenever the branch code was matched. A branch that isn't in the
-    // master data at all is dropped from this sheet entirely (not left with
-    // blank cells) — this sheet's whole point is auto-filled rows, so an
-    // unmatched one is just noise the user has to delete by hand anyway.
+    // รายการ / Note / รายการตัดVat / ผู้จัดการเขต). The receipt's own
+    // "เลขสาขา" is the 7-Eleven/CP ALL branch that issued the receipt, not a
+    // Cafe Amazon branch code, so it will essentially never match the
+    // embedded Cafe Amazon master data — CODE/ชื่อร้าน/ผู้จัดการเขต are
+    // filled in on the rare case it does, left blank otherwise, but the
+    // row itself is always kept: the amount and item category are the part
+    // the user actually needs from this sheet every time, per their own
+    // instruction that a missing branch match is fine.
     const fillRows = rows.filter(r=>r.isCPAll).map(r => {
       const digits = String(r.branchCode||'').replace(/\D/g,'');
       const info = lookupBranchInfo(r.branchCode);
-      if(!info) return null;
       return {
         'CODE': digits || '',
-        'ชื่อร้าน': info.name,
+        'ชื่อร้าน': info ? info.name : '',
         'จำนวนเงิน': r.chosenAmount || '',
         'รายการ': classifyProduct(r.itemDescription, r.file).label,
         'Note': '',
         'รายการตัดVat': r.useIncludeVat ? '' : (r.chosenAmount || ''),
-        'ผู้จัดการเขต': info.manager
+        'ผู้จัดการเขต': info ? info.manager : ''
       };
-    }).filter(Boolean);
+    });
     const fillSheet = XLSX.utils.json_to_sheet(fillRows, {
       header: ['CODE','ชื่อร้าน','จำนวนเงิน','รายการ','Note','รายการตัดVat','ผู้จัดการเขต']
     });
@@ -1336,13 +1337,18 @@
   // product on purpose (e.g. "Milk-....pdf", "soda-....pdf"). Checked in
   // order of specificity — Vitamilk/Meiji are themselves a kind of milk, so
   // they're checked before the generic "นม"/"milk" pattern.
+  // Only three categories get a fixed label (เมจิ/ไวตามิล/โซดา) — anything
+  // else shows the actual OCR'd item text instead of a guessed bucket, per
+  // the user's own instruction: match these three specifically, and show
+  // the real name for everything else rather than lumping it under a
+  // generic "นม".
   function classifyProduct(itemDescription, fileName){
     const text = ((itemDescription||'') + ' ' + (fileName||'')).toLowerCase();
-    if(/ไวตามิล|vitamilk|ถั่วเหลือง|soy/.test(text)) return { emoji: '🫘', label: 'นมไวตามิล' };
     if(/เมจิ|meiji/.test(text)) return { emoji: '🥛', label: 'นมเมจิ' };
+    if(/ไวตามิล|vitamilk|ถั่วเหลือง|soy/.test(text)) return { emoji: '🫘', label: 'นมถั่วเหลืองไวตามิลค์' };
     if(/โซดา|soda|ซ่า/.test(text)) return { emoji: '🥤', label: 'โซดา' };
-    if(/นม|milk/.test(text)) return { emoji: '🥛', label: 'นม' };
-    return { emoji: '', label: '' };
+    const fallback = (itemDescription||'').trim();
+    return { emoji: fallback ? '📦' : '', label: fallback };
   }
   function renderTable(){
     els.resultsHolder.innerHTML = '';
