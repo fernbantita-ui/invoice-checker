@@ -261,7 +261,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- xlsx-js-style = SheetJS 0.18.5 + cell styles (coloured headers) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script>
 (function(){
   "use strict";
@@ -1498,15 +1499,42 @@
       };
     });
   }
+  // header colours (same scheme as the COCO/HANA master sheet): navy = who/where, pink = amount, green = checks/notes
+  const C_NAVY = '333F4F', C_PINK = 'FF3399', C_GREEN = '1E6B2E', C_BLUE = '2F5597';
+  const HEAD_COLOR_DETAIL = { 'ไฟล์':C_NAVY,'หน้า':C_NAVY,'ใบที่':C_NAVY,'เลขสาขา':C_NAVY,'วันที่เอกสาร':C_NAVY,'รายการสินค้า':C_NAVY,
+    'ก่อน VAT':C_BLUE,'รวมทั้งสิ้น':C_BLUE,'ยอดที่เลือกใช้':C_PINK,'ประเภทยอด':C_BLUE,'% ตรง':C_BLUE,'รายการตัดVat':C_BLUE };
+  const HEAD_COLOR_FILL = { 'CODE':C_NAVY,'ชื่อร้าน':C_NAVY,'จำนวนเงิน':C_PINK };
+  const thin = { style:'thin', color:{ rgb:'BFBFBF' } };
+  const BORDER = { top:thin, bottom:thin, left:thin, right:thin };
+  function styleSheet(ws, header, colors, centerCols){
+    const nRows = XLSX.utils.decode_range(ws['!ref']).e.r;
+    header.forEach((h, c) => {
+      const ref = XLSX.utils.encode_cell({ r:0, c });
+      if(!ws[ref]) ws[ref] = { t:'s', v:h };
+      ws[ref].s = { font:{ bold:true, color:{ rgb:'FFFFFF' }, sz:12 }, fill:{ patternType:'solid', fgColor:{ rgb: colors[h] || C_GREEN } },
+                    alignment:{ horizontal:'center', vertical:'center', wrapText:true }, border: BORDER };
+      for(let r=1; r<=nRows; r++){
+        const rc = XLSX.utils.encode_cell({ r, c });
+        if(!ws[rc]) continue;
+        ws[rc].s = { border: BORDER, alignment:{ vertical:'center', horizontal: centerCols.includes(h) ? 'center' : undefined } };
+        if(h === 'ยอดที่เลือกใช้' || h === 'จำนวนเงิน') ws[rc].s.font = { bold:true };
+      }
+    });
+    ws['!rows'] = [{ hpt: 30 }];
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{ r:nRows, c:header.length-1 } }) };
+  }
+
   function buildWorkbook(detail, fill){
     const wb = XLSX.utils.book_new();
-    const wd = XLSX.utils.json_to_sheet(detail, { header: DETAIL_HEADER });
-    wd['!cols'] = [{wch:26},{wch:6},{wch:18},{wch:10},{wch:12},{wch:30},{wch:10},{wch:11},{wch:12},{wch:10},{wch:7},{wch:11},{wch:10},{wch:10},{wch:18},{wch:10}];
-    XLSX.utils.book_append_sheet(wb, wd, 'รายละเอียด');
+    // กรอกเอกสาร first, so the file opens on it
     const wf = XLSX.utils.json_to_sheet(fill || [], { header: FILL_HEADER });
     wf['!cols'] = [{wch:8},{wch:42},{wch:12},{wch:28},{wch:22},{wch:14},{wch:26},{wch:18}];
+    styleSheet(wf, FILL_HEADER, HEAD_COLOR_FILL, ['CODE']);
     XLSX.utils.book_append_sheet(wb, wf, 'กรอกเอกสาร');
-    wb.Workbook = { Views: [{ activeTab: 1 }] };     // opens on กรอกเอกสาร
+    const wd = XLSX.utils.json_to_sheet(detail, { header: DETAIL_HEADER });
+    wd['!cols'] = [{wch:26},{wch:6},{wch:18},{wch:10},{wch:12},{wch:30},{wch:10},{wch:11},{wch:12},{wch:10},{wch:7},{wch:11},{wch:10},{wch:10},{wch:18},{wch:10}];
+    styleSheet(wd, DETAIL_HEADER, HEAD_COLOR_DETAIL, ['หน้า','ประเภทยอด','% ตรง','ชื่อลูกค้าถูกต้อง','ที่อยู่ลูกค้าถูกต้อง','อยู่ในกำหนดวันที่']);
+    XLSX.utils.book_append_sheet(wb, wd, 'รายละเอียด');
     return wb;
   }
   els.exportBtn.addEventListener('click', () => {
