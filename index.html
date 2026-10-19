@@ -281,13 +281,16 @@
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
     <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
     <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้<br>
-    <span style="opacity:0.5;">build 2026-10-19-1</span>
+    <span style="opacity:0.5;">build 2026-10-19-2</span>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- xlsx-js-style = SheetJS 0.18.5 + cell styles (coloured headers) — the
+     plain xlsx.full.min.js build silently drops .s style assignments on
+     write, even with cellStyles:true passed to writeFile. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script>
 (function(){
   "use strict";
@@ -486,17 +489,16 @@
     renderHistory();
   }
   // Colors just the header row (dark navy fill, bold white text) so it's
-  // easy to spot where the data starts when scrolling a wide sheet.
-  // SheetJS's free/community build only writes cell styles when the
-  // workbook is written with cellStyles:true (set on both XLSX.writeFile
-  // calls below) — without that flag these .s assignments are silently
-  // ignored on export.
+  // easy to spot where the data starts when scrolling a wide sheet. Needs
+  // the xlsx-js-style build (loaded above in place of plain SheetJS) — the
+  // free/community xlsx.full.min.js silently drops .s style assignments on
+  // write regardless of any options passed to writeFile.
   function styleHeaderRow(sheet, colCount){
     for(let c=0; c<colCount; c++){
       const ref = XLSX.utils.encode_cell({ r:0, c });
       if(!sheet[ref]) continue;
       sheet[ref].s = {
-        fill: { fgColor: { rgb: '1F4E78' } },
+        fill: { patternType: 'solid', fgColor: { rgb: '1F4E78' } },
         font: { bold: true, color: { rgb: 'FFFFFF' } },
         alignment: { vertical: 'center', horizontal: 'left' }
       };
@@ -570,7 +572,7 @@
   function downloadHistoryEntry(entry){
     const wb = buildWorkbookFromRows(entry.rows, { inspector: entry.inspector, when: new Date(entry.ts).toLocaleString('th-TH') });
     const stamp = entry.ts.slice(0,10);
-    XLSX.writeFile(wb, `cpall_invoice_results_${stamp}_${entry.inspector}.xlsx`, { cellStyles: true });
+    XLSX.writeFile(wb, `cpall_invoice_results_${stamp}_${entry.inspector}.xlsx`);
   }
   function renderHistory(){
     // Filter dropdown options (keep current selection if still valid)
@@ -1600,7 +1602,7 @@
     const rows = allBills.map(billToHistoryRow);
     const wb = buildWorkbookFromRows(rows, { inspector, when: new Date().toLocaleString('th-TH') });
     const stamp = new Date().toISOString().slice(0,10);
-    XLSX.writeFile(wb, `cpall_invoice_results_${stamp}.xlsx`, { cellStyles: true });
+    XLSX.writeFile(wb, `cpall_invoice_results_${stamp}.xlsx`);
   });
 
   loadFeedback();
