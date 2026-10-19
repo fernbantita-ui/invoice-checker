@@ -845,6 +845,122 @@
     }
   }
 
+  // ---------- branch resolver: every code must be a Cafe Amazon store in the master data ----------
+  // Evidence per bill: digits the OCR managed to read, the branch-name text on the stamp, and
+  // what other bills in this batch (or earlier runs) taught us ("Forestry" → SC0037, "CRC" → SC0695).
+  const ALIAS_KEY = 'jiffy-branch-alias-v1';
+  let branchAlias = {};
+  try{ branchAlias = JSON.parse(localStorage.getItem(ALIAS_KEY) || '{}') || {}; }catch(e){ branchAlias = {}; }
+  function saveAlias(){ try{ localStorage.setItem(ALIAS_KEY, JSON.stringify(branchAlias)); }catch(e){} }
+  const normTxt = t => thaiSkel(String(t||'').toLowerCase()).replace(/[^a-z0-9ก-๙]/g,'');
+  const LABEL_JUNK = /^(.*?(สาขา|สาซา|ศาขา|ลาขา|าขา|ชา|ขา))/;      // strip the printed "สาขา ____" label
+  function nameKey(t){ return normTxt(String(t||'').replace(LABEL_JUNK,'')); }
+  function learnAlias(stampName, code){
+    const k = nameKey(stampName);
+    if(k.length >= 3 && lookupBranch(code)){ branchAlias[k] = lookupBranch(code).code; saveAlias(); }
+  }
+  // best fuzzy match of ref anywhere inside text (sliding window)
+  function fuzzyIn(ref, text){
+    const r = normTxt(ref); if(r.length < 3) return 0;
+    let best = 0;
+    if(r.length <= 4){
+      // short names (CRC): compare with whole words of about the same length only
+      for(const w of String(text||'').split(/[^A-Za-z0-9ก-๙]+/)){
+        const k = normTxt(w);
+        if(k.length >= 3 && Math.abs(k.length - r.length) <= 1){ const v = similarityRatio(r, k); if(v > best) best = v; }
+      }
+      return best;
+    }
+    for(const line of String(text||'').split('\n')){
+      const l = normTxt(line); if(!l) continue;
+      for(let len = Math.max(2, r.length-2); len <= Math.min(l.length, r.length+2); len++)
+        for(let i=0; i+len<=l.length; i++){ const v = similarityRatio(r, l.substr(i,len)); if(v > best) best = v; }
+    }
+    return best;
+  }
+  const DIGIT_FIX2 = { O:'0', o:'0', D:'0', U:'0', Q:'0', I:'1', l:'1', '|':'1', Z:'2', S:'5', s:'5', B:'8', g:'9' };
+  function digitGroups(text){
+    const out = new Set();
+    const t = String(text||'').replace(/[OoDUQIl|ZSsBg]/g, ch => DIGIT_FIX2[ch]);
+    for(const m of t.matchAll(/\d[\d\s]{1,5}\d/g)){ const d = m[0].replace(/\s/g,''); if(d.length >= 3 && d.length <= 5) out.add(d.slice(-4).padStart(4,'0')); }
+    return [...out];
+  }
+  const digitSim = (code, groups) => { const c = code.replace(/\D/g,'').padStart(4,'0').slice(-4); let best = 0;
+    for(const g of groups){ let k=0; for(let i=0;i<4;i++) if(g[i]===c[i]) k++; if(k > best) best = k; } return best >= 3 ? best/4 : 0; };
+  // footer part of the full-page OCR (stamp area) — skips the printed header with its own addresses
+  function footerText(rawText){
+    const lines = String(rawText||'').split('\n');
+    const i = lines.findIndex(l => /หมายเหต|ลงนาม/.test(thaiSkel(l)));
+    return i >= 0 ? lines.slice(i).join('\n') : '';
+  }
+  function resolveBranches(bills){
+    // 1) bills whose OCR'd code exists in the master → trusted (a misread almost never lands on another real store); learn their stamp names
+    const trusted = new Set();
+    const learned = {};          // code → [stamp names seen this batch]
+    for(const b of bills){
+      const ex = b.excel, hit = lookupBranch(ex.branchCode);
+      if(hit){
+        trusted.add(hit.code);
+        if(ex.stampName){ (learned[hit.code] = learned[hit.code] || []).push(ex.stampName); if(ex.branchSure || ex.branchEdited) learnAlias(ex.stampName, hit.code); }
+      }
+    }
+    for(const [k, code] of Object.entries(branchAlias)) (learned[code] = learned[code] || []).push(k);
+    // 2) everyone else: score candidate stores (2 rounds — names resolved in round 1 help round 2)
+    for(let round = 0; round < 2; round++) for(const b of bills){
+      const ex = b.excel;
+      if(ex.branchEdited) continue;
+      const cur = lookupBranch(ex.branchCode);
+      if(cur) continue;
+      const text = [b.stampText, b.lineText, footerText(b.rawText)].join('\n');
+      const groups = digitGroups([b.lineText, b.stampText, ex.branchCode].join(' '));
+      const cand = new Set([...trusted, ...Object.keys(learned)]);
+      if(cur) cand.add(cur.code);
+      for(const code of Object.keys(BRANCH_MASTER)) if(digitSim(code, groups) >= 0.75) cand.add(code);
+      const nh = lookupBranchByName(ex.stampName); if(nh) cand.add(nh.code);
+      const scored = [];
+      for(const code of cand){
+        const refs = [shortBranchName(BRANCH_MASTER[code][0]).replace(/ตึก.*$/,'')].concat(learned[code] || []);
+        // short names (CRC) may differ by one letter; longer ones must match closely (Forasty ≈ Forestry)
+        const nameS = Math.max(0, ...refs.map(r => { const v = fuzzyIn(r, text); return v >= (normTxt(r).length <= 4 ? 0.66 : 0.78) ? v : 0; }));
+        const dig = digitSim(code, groups);
+        const score = nameS + 0.6*dig + (trusted.has(code) ? 0.15 : 0) + (cur && cur.code === code ? 0.3 : 0);
+        scored.push({ code, score, nameS, dig });
+      }
+      scored.sort((a,b) => b.score - a.score);
+      const top = scored[0], second = scored[1] ? scored[1].score : 0;
+      if(top && top.score >= 0.8 && top.score - second >= 0.15){
+        if(!cur || cur.code !== top.code){
+          ex.branchCode = ex.branchOcr = top.code.replace(/^(SC|CC)/,'$1 ');
+          ex.branchSource = top.nameS > 0 ? (top.dig ? 'ชื่อสาขา + เลขบางส่วน' : 'ชื่อสาขาบนตรา') : 'เลขบางส่วน + Master Data';
+        }
+        ex.branchSure = false;
+        if(ex.stampName) (learned[top.code] = learned[top.code] || []).push(ex.stampName);
+      }
+    }
+    // every real code is in the master → a code that isn't is a misread: blank it (kept in branchOcr for reference)
+    for(const b of bills){
+      const ex = b.excel;
+      if(ex.branchCode && !lookupBranch(ex.branchCode) && !ex.branchEdited){
+        ex.branchOcr = ex.branchCode; ex.branchCode = ''; ex.branchSure = false;
+        ex.branchSource = `OCR อ่านได้ ${ex.branchOcr} แต่ไม่มีใน Master Data`;
+      }
+    }
+    // 3) still unknown, but the nearest known pages before and after (same file) are the same store
+    //    → bills come in runs per store, so take it (flagged as a guess)
+    const known = b => !!lookupBranch(b.excel.branchCode);
+    bills.forEach((b, i) => {
+      if(known(b) || b.excel.branchEdited) return;
+      let p = i-1; while(p >= 0 && !known(bills[p]) && bills[p].file === b.file) p--;
+      let n = i+1; while(n < bills.length && !known(bills[n]) && bills[n].file === b.file) n++;
+      const prev = p >= 0 && bills[p].file === b.file ? lookupBranch(bills[p].excel.branchCode) : null;
+      const next = n < bills.length && bills[n].file === b.file ? lookupBranch(bills[n].excel.branchCode) : null;
+      if(prev && next && prev.code === next.code){
+        b.excel.branchCode = prev.code.replace(/^(SC|CC)/,'$1 '); b.excel.branchSure = false;
+        b.excel.branchSource = 'เดาจากหน้าข้างเคียง (ตราอ่านไม่ออก)';
+      }
+    });
+  }
+
   // ---------- product labels ----------
   function productTag(name){
     const k = thaiSkel(String(name||'').toLowerCase());
@@ -901,6 +1017,7 @@
       branchCode, branchSure, branchAlt, branchSource, branchOcr: branchCode,
       branchPartial: branchCode ? '' : (partialCodePrefix(lineText) || partialCodePrefix(stampText)),
       branchName: extractStampBranchName(stampText),
+      stampName: extractStampBranchName(stampText),
       storeBranch: extractStoreBranch(rawText),
       subtotal: amounts.subtotal,
       vat: amounts.vat,
@@ -1131,6 +1248,7 @@
       }
     }
 
+    resolveBranches(allBills);
     allBills.forEach(b => completeBranch(b.excel));
     markDuplicates();
     recordRun(files.map(f => f.name));
@@ -1185,6 +1303,15 @@
     const noBranch = allBills.filter(b => !b.excel.branchCode).length;
     const dupCount = allBills.filter(b => b.dupOf && b.dupOf.length).length;
     els.summaryText.textContent = `ผ่านเกณฑ์ ${passCount}/${allBills.length} บิล · เป็นเอกสารของผู้ออก ${issuerCount}/${allBills.length} · ต้นฉบับ ${origCount} / สำเนา ${copyCount}` + (noBranch ? ` · อ่านรหัสสาขาไม่ได้ ${noBranch}` : '') + (dupCount ? ` · เลขบิลซ้ำ ${dupCount} ใบ` : ' · ไม่มีเลขบิลซ้ำ');
+  }
+
+  // one typed-in code teaches the stamp name → the other unread bills in the batch get re-checked
+  function reResolveAfterEdit(){
+    const y = window.scrollY;
+    resolveBranches(allBills);
+    allBills.forEach(b => completeBranch(b.excel));
+    renderTable(); updateSummary(); refreshCurrentRun();
+    window.scrollTo(0, y);
   }
 
   function renderTable(){
@@ -1252,11 +1379,12 @@
         const v = bcInput.value.trim().toUpperCase().replace(/^(SC|CC)\s*-?\s*/, '$1 ');
         bcInput.value = v;
         b.excel.branchCode = v; b.excel.branchEdited = true;
+        if(b.excel.stampName) learnAlias(b.excel.stampName, v);
         const hit = lookupBranch(v);
         if(hit){ b.excel.branchName = shortBranchName(hit.name); bnInput.value = b.excel.branchName; }
         bcInput.className = 'bc-input' + (v ? '' : ' empty');
         bcInput.title = 'แก้ไขเองแล้ว';
-        updateSummary(); refreshCurrentRun();
+        reResolveAfterEdit();
       });
       bcCell.appendChild(bcInput);
       const bnInput = document.createElement('input');
@@ -1267,7 +1395,7 @@
         b.excel.branchName = bnInput.value.trim(); b.excel.branchNameEdited = true;
         if(!b.excel.branchCode){
           const hit = lookupBranchByName(b.excel.branchName);
-          if(hit){ b.excel.branchCode = hit.code.replace(/^(SC|CC)/,'$1 '); b.excel.branchEdited = true; bcInput.value = b.excel.branchCode; bcInput.className = 'bc-input'; bnInput.value = b.excel.branchName = shortBranchName(hit.name); updateSummary(); }
+          if(hit){ b.excel.branchCode = hit.code.replace(/^(SC|CC)/,'$1 '); b.excel.branchEdited = true; if(b.excel.stampName) learnAlias(b.excel.stampName, hit.code); bnInput.value = b.excel.branchName = shortBranchName(hit.name); reResolveAfterEdit(); return; }
         }
         refreshCurrentRun();
       });
@@ -1485,7 +1613,8 @@
       const notes = [];
       if(b.copyInfo.type === 'สำเนา') notes.push('สำเนา');
       if(b.dupOf && b.dupOf.length) notes.push('เลขบิลซ้ำ');
-      if(!b.excel.branchCode) notes.push('อ่านรหัสสาขาไม่ได้');
+      if(!b.excel.branchCode) notes.push(b.excel.branchOcr ? `อ่านรหัสได้ ${b.excel.branchOcr} แต่ไม่มีใน Master Data` : 'อ่านรหัสสาขาไม่ได้');
+      else if(/เดาจาก|ชื่อสาขา|บางส่วน/.test(b.excel.branchSource||'') && !b.excel.branchEdited) notes.push('รหัสสาขา: ' + b.excel.branchSource + ' — ตรวจอีกที');
       else if(!info) notes.push('ไม่พบสาขาใน Master Data');
       return {
         'CODE': digits ? String(parseInt(digits,10)) : '',
