@@ -171,20 +171,7 @@
   <div class="grid">
     <div>
       <div class="panel">
-        <h2>1 · ผู้ออกใบเสร็จ CP ALL (ไม่บังคับ — เจ้าอื่นไม่ต้องกรอก)</h2>
-        <div class="field-row">
-          <label>ที่อยู่ผู้ออก (เช็คแบบ "มีคำนี้ไหม" ทุกคำ)</label>
-          <textarea id="issuerAddrInput" style="min-height:56px;">313 อาคาร ซี.พี.ทาวเวอร์ ชั้น24 ถ.สีลม แขวงสีลม เขตบางรัก กรุงเทพฯ 10500</textarea>
-        </div>
-        <div class="field-row">
-          <label>เลขประจำตัวผู้เสียภาษีผู้ออก</label>
-          <input type="text" id="issuerTaxIdInput" value="0107542000011">
-        </div>
-        <p class="hint">ใช้แค่ระบุว่าเอกสารนี้เป็นของ CP ALL หรือไม่ (เพื่อคิดคะแนนส่วนผู้ออก) — ถ้าเป็นใบเสร็จของเจ้าอื่น เช่น Tops ระบบยังตรวจชื่อ/ที่อยู่/เลขผู้เสียภาษีลูกค้าตามปกติ ไม่ตัดทิ้ง</p>
-      </div>
-
-      <div class="panel">
-        <h2>2 · ข้อมูลลูกค้า (ปตท.) — เน้นตรวจชื่อเป็นพิเศษ</h2>
+        <h2>1 · ข้อมูลลูกค้า (ปตท.)</h2>
         <div class="field-row">
           <label>ชื่อผู้ซื้อสินค้า (แต่ละคำต้องสะกดถูก เว้นวรรคได้)</label>
           <input type="text" id="customerNameInput" value="บริษัทปตท. น้ำมันและการค้าปลีก จำกัด (มหาชน)">
@@ -197,7 +184,7 @@
       </div>
 
       <div class="panel">
-        <h2>3 · วันที่ใช้ตัดสินยอดเงิน</h2>
+        <h2>2 · วันที่ใช้ตัดสินยอดเงิน</h2>
         <div class="field-row" style="margin-top:0;">
           <label>ใบเสร็จลงวันที่ไม่เกินวันที่ (ปล่อยว่าง = ไม่จำกัด)</label>
           <input type="date" id="dateEndInput">
@@ -210,7 +197,7 @@
       </div>
 
       <div class="panel">
-        <h2>4 · อัปโหลดเอกสาร (PDF)</h2>
+        <h2>3 · อัปโหลดเอกสาร (PDF)</h2>
         <div class="field-row" style="margin-top:0;">
           <label>ผู้ตรวจ</label>
           <select id="inspectorSelect">
@@ -276,7 +263,7 @@
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
     <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
     <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้<br>
-    <span style="opacity:0.5;">build 2026-10-30-3</span>
+    <span style="opacity:0.5;">build 2026-10-30-4</span>
   </footer>
 </div>
 
@@ -312,7 +299,7 @@
   }
 
   const els = {};
-  ['issuerAddrInput','issuerTaxIdInput','customerNameInput','taxIdInput',
+  ['customerNameInput','taxIdInput',
    'dateEndInput','threshold','dropzone','fileInput','fileList',
    'runBtn','clearBtn','resultsHolder','emptyState','resultsToolbar','failOnlyToggle',
    'summaryText','statusLine','progressFill','exportBtn','copySection','copyHolder',
@@ -539,7 +526,7 @@
   }
   function billToHistoryRow(b){
     return {
-      file: b.file, page: b.page, isCPAll: b.isCPAll, vendor: b.excel.vendor||'', dupNote: b.dupNote||'', isCopy: !!b.isCopy,
+      file: b.file, page: b.page, vendor: b.excel.vendor||'', dupNote: b.dupNote||'', isCopy: !!b.isCopy,
       invoiceNo: b.excel.invoiceNo||'', branchCode: b.excel.branchCode||'',
       date: b.excel.date ? localISODate(b.excel.date) : '',
       itemDescription: b.excel.itemDescription||'',
@@ -550,7 +537,6 @@
     };
   }
   function recordRunToHistory(inspector, fileNames, bills, fileMeta){
-    const cpAllBills = bills.filter(b=>b.isCPAll);
     const passCount = bills.filter(b => b.overallScore*100 >= (Number(els.threshold.value)||0)).length;
     const entry = {
       id: 'run_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
@@ -559,7 +545,6 @@
       fileNames,
       fileMeta: fileMeta || [],
       totalBills: bills.length,
-      cpAllCount: cpAllBills.length,
       passCount,
       rows: bills.map(billToHistoryRow)
     };
@@ -619,7 +604,7 @@
     // pass/fail-style columns, per how the user actually reads this sheet.
     const detailRows = rows.map(r => ({
       'ไฟล์': r.file, 'หน้า': r.page,
-      'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'ผู้ออกใบเสร็จ': r.vendor || (r.isCPAll ? 'CP ALL' : ''), 'วันที่เอกสาร': r.date,
+      'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'ผู้ออกใบเสร็จ': r.vendor || '', 'วันที่เอกสาร': r.date,
       'รายการสินค้า': r.itemDescription || '',
       'ก่อน VAT': toNum(r.subtotal), 'รวมทั้งสิ้น': toNum(r.total),
       'ยอดที่เลือกใช้': toNum(r.chosenAmount), 'ประเภทยอด': r.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
@@ -1366,9 +1351,7 @@
     els.copySection.style.display = 'none';
     els.exportBtn.disabled = true;
     const nameWords = els.customerNameInput.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
-    const issuerAddrWords = els.issuerAddrInput.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
     const customerTaxId = els.taxIdInput.value.replace(/\D/g,'');
-    const issuerTaxId = els.issuerTaxIdInput.value.replace(/\D/g,'');
     const dateEnd = els.dateEndInput.value;
     const files = queuedFiles.slice();
 
@@ -1405,12 +1388,6 @@
         const rawText = data.text || '';
         const tessWords = extractTessWords(data);
 
-        const issuerTaxR = approxFindChars(issuerTaxId, rawText.replace(/\D/g,''));
-        const issuerTaxBBox = tessWords.length ? findBboxDigits(issuerTaxId, tessWords) : null;
-        const issuerAddrResults = issuerAddrWords.map(w2 => matchWord(w2, rawText, tessWords));
-        const issuerAddrAvg = issuerAddrResults.length ? issuerAddrResults.reduce((s,x)=>s+x.score,0)/issuerAddrResults.length : 1;
-        const branchLabelR = approxFindChars('สาขาที่ออกใบกำกับภาษี', rawText);
-        const isCPAll = issuerTaxR.score >= 0.85 && issuerAddrAvg >= 0.6 && branchLabelR.score >= 0.6;
 
         const customerSection = extractCustomerSection(rawText, customerTaxId);
         const customerSectionMasked = maskKnownDigits(customerSection.primary, customerTaxId);
@@ -1508,16 +1485,12 @@
         const useIncludeVat = addressOk && inRange;
         const chosenAmount = useIncludeVat ? excel.total : excel.subtotal;
 
-        // The CP ALL issuer checks only count towards the score when the
-        // document actually is a CP ALL one — otherwise a receipt from any
-        // other issuer would lose 20% for fields that can't apply to it.
-        const overallScore = isCPAll
-          ? (issuerTaxR.score*0.10) + (issuerAddrAvg*0.10) + (nameAvg*0.40) + (addrAvg*0.25) + (custR.score*0.15)
-          : ((nameAvg*0.40) + (addrAvg*0.25) + (custR.score*0.15)) / 0.80;
+        // Score = customer name 40%, customer address (head office/branch) 25%,
+        // customer tax id 15% — rescaled to 100%.
+        const overallScore = ((nameAvg*0.40) + (addrAvg*0.25) + (custR.score*0.15)) / 0.80;
 
         allBills.push({
           file: entry.file.name, page: p+1, totalPagesInFile: entry.canvases.length,
-          isCPAll, issuerTaxR, issuerTaxBBox, issuerAddrAvg, branchLabelR,
           nameResults, nameAvg, namePass, wordResults, addrAvg, addrPass,
           custR, custBBox, custPass,
           addressOk, inRange, useIncludeVat, chosenAmount,
@@ -1589,7 +1562,7 @@
       .filter(b => !failOnly || b.pct < threshold);
 
     const passCount = allBills.filter(b => b.overallScore*100 >= threshold).length;
-    const vendorCount = new Set(allBills.map(b => b.excel.vendor || (b.isCPAll ? 'CP ALL' : '')).filter(Boolean)).size;
+    const vendorCount = new Set(allBills.map(b => b.excel.vendor || '').filter(Boolean)).size;
     els.summaryText.textContent = `ผ่านเกณฑ์ ${passCount}/${allBills.length} บิล · ผู้ออก ${vendorCount} เจ้า`;
 
     if(rows.length === 0){
@@ -1621,7 +1594,7 @@
         <td>${escapeHtml(b.file)}${b.isCopy ? ' <span class="pill copy">สำเนา</span>' : ''}${b.dupNote ? ` <span class="pill warn" title="${escapeHtml(b.dupNote)}">⚠ ซ้ำ</span><div style="font-size:11px;color:var(--ink-soft);">${escapeHtml(b.dupNote)}</div>` : ''}</td>
         <td class="mono">${escapeHtml(b.excel.invoiceNo||'—')}</td>
         <td class="mono">${escapeHtml(b.excel.branchCode||'—')}</td>
-        <td>${escapeHtml(b.excel.vendor || (b.isCPAll ? 'CP ALL' : '—'))}</td>
+        <td>${escapeHtml(b.excel.vendor || '—')}</td>
         <td>${b.addressOk ? '✅' : '❌'}</td>
         <td>${b.inRange ? '✅' : '❌'}</td>
         <td class="mono">${escapeHtml(b.chosenAmount || '—')}</td>
@@ -1693,7 +1666,6 @@
       });
       b.nameResults.forEach(f => { if(f.bbox) boxes.push({bbox:f.bbox, ...(f.score>=0.9?COLORS.ok:COLORS.warn)}); });
       if(b.custBBox) boxes.push({bbox:b.custBBox, ...COLORS.tax});
-      if(b.issuerTaxBBox) boxes.push({bbox:b.issuerTaxBBox, ...COLORS.issuer});
       const url = drawAnnotations(b.canvas, boxes);
       const img = document.createElement('img'); img.src = url;
       imgHolder.appendChild(img);
@@ -1703,7 +1675,6 @@
         <span><span class="legend-sw" style="background:${COLORS.ok.stroke}"></span>ตรง</span>
         <span><span class="legend-sw" style="background:${COLORS.warn.stroke}"></span>สะกดผิด/ใกล้เคียง</span>
         <span><span class="legend-sw" style="background:${COLORS.tax.stroke}"></span>เลขผู้เสียภาษีลูกค้า</span>
-        <span><span class="legend-sw" style="background:${COLORS.issuer.stroke}"></span>เลขผู้เสียภาษีผู้ออก</span>
       `;
       imgHolder.appendChild(legend);
       if(!b.hasTessWords){
@@ -1719,17 +1690,8 @@
 
     const iTitle = document.createElement('div');
     iTitle.className = 'detail-section-title';
-    iTitle.textContent = `ผู้ออกใบเสร็จ: ${b.excel.vendor || '(อ่านชื่อไม่ได้)'}${b.isCPAll ? ' — ตรงกับ CP ALL' : ' — ไม่ใช่ CP ALL (ไม่ถูกนับเป็นเงื่อนไข)'}`;
+    iTitle.textContent = `ผู้ออกใบเสร็จ: ${b.excel.vendor || '(อ่านชื่อไม่ได้)'} · เลขสาขาที่อ่านได้: ${b.excel.branchCode || '— ไม่พบ —'}`;
     wrap.appendChild(iTitle);
-    const iList = document.createElement('div');
-    iList.className = 'field-list';
-    iList.innerHTML = `
-      <div class="field-item"><div class="fname">มีเลขผู้เสียภาษีผู้ออก</div><div class="fmatch">${escapeHtml(b.issuerTaxR.match||'—')}</div><div class="fscore score-num ${b.issuerTaxR.score>=0.85?'ok':'bad'}">${(b.issuerTaxR.score*100).toFixed(0)}%</div><div></div></div>
-      <div class="field-item"><div class="fname">มีที่อยู่ผู้ออก</div><div class="fmatch">เฉลี่ย ${(b.issuerAddrAvg*100).toFixed(0)}%</div><div class="fscore score-num ${b.issuerAddrAvg>=0.6?'ok':'bad'}">${(b.issuerAddrAvg*100).toFixed(0)}%</div><div></div></div>
-      <div class="field-item"><div class="fname">มี "สาขาที่ออกใบกำกับภาษี"</div><div class="fmatch">${escapeHtml(b.branchLabelR.match||'—')}</div><div class="fscore score-num ${b.branchLabelR.score>=0.6?'ok':'bad'}">${(b.branchLabelR.score*100).toFixed(0)}%</div><div></div></div>
-      <div class="field-item"><div class="fname">เลขสาขาที่อ่านได้</div><div class="fmatch">${escapeHtml(b.excel.branchCode||'— ไม่พบ —')}</div><div class="fscore score-num ${b.excel.branchCode?'ok':'bad'}">${b.excel.branchCode?'100':'0'}%</div><div></div></div>
-    `;
-    wrap.appendChild(iList);
 
     const nTitle = document.createElement('div');
     nTitle.className = 'detail-section-title';
