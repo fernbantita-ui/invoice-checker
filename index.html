@@ -276,7 +276,7 @@
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
     <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
     <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้<br>
-    <span style="opacity:0.5;">build 2026-10-30-2</span>
+    <span style="opacity:0.5;">build 2026-10-30-3</span>
   </footer>
 </div>
 
@@ -373,13 +373,67 @@
   });
   els.fileInput.addEventListener('change', e => { addFiles(Array.from(e.target.files)); els.fileInput.value=''; });
 
-  function addFiles(files){ for(const f of files) queuedFiles.push(f); renderFileList(); }
+  // ---------- duplicate-upload detection ----------
+  // SHA-256 of the file's bytes: identical hash = literally the same file,
+  // whatever it's named. Checked against every earlier run kept in this
+  // browser's history (history stores hashes, not the files themselves).
+  async function fileHash(f){
+    if(f.__hash !== undefined) return f.__hash;
+    let h = '';
+    try{
+      if(window.crypto && crypto.subtle){
+        const d = await crypto.subtle.digest('SHA-256', await f.arrayBuffer());
+        h = Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      }
+    }catch(e){ console.warn('hash failed', e); }
+    f.__hash = h;
+    return h;
+  }
+  function fmtWhen(ts){
+    try{ return new Date(ts).toLocaleString('th-TH', { dateStyle:'short', timeStyle:'short' }); }catch(e){ return ts; }
+  }
+  function findPriorFile(f){
+    for(const e of runHistory){
+      for(const x of (e.fileMeta || [])){
+        if(f.__hash && x.hash === f.__hash) return { kind:'same', ts:e.ts, inspector:e.inspector, name:x.name };
+      }
+    }
+    for(const e of runHistory){
+      for(const x of (e.fileMeta || [])){
+        if(x.name === f.name) return { kind:'samename', ts:e.ts, inspector:e.inspector, name:x.name };
+      }
+    }
+    return null;
+  }
+  function priorFileText(pr){
+    if(!pr) return '';
+    return pr.kind === 'same'
+      ? `ไฟล์เดียวกันกับที่เคยตรวจแล้ว (${fmtWhen(pr.ts)} โดย ${pr.inspector})`
+      : `ชื่อไฟล์ซ้ำกับที่เคยตรวจ (${fmtWhen(pr.ts)} โดย ${pr.inspector}) แต่เนื้อหาไม่ตรงกัน`;
+  }
+  async function addFiles(files){
+    for(const f of files) queuedFiles.push(f);
+    renderFileList();
+    for(const f of files){ await fileHash(f); f.__prior = findPriorFile(f); }
+    // same bytes queued twice in this batch
+    const firstByHash = new Map();
+    for(const f of queuedFiles){
+      if(!f.__hash) continue;
+      if(firstByHash.has(f.__hash)) f.__dupInQueue = firstByHash.get(f.__hash).name;
+      else firstByHash.set(f.__hash, f);
+    }
+    renderFileList();
+  }
   function renderFileList(){
     els.fileList.innerHTML = '';
     queuedFiles.forEach((f, i) => {
       const chip = document.createElement('div');
       chip.className = 'file-chip';
-      chip.innerHTML = `<span>${escapeHtml(f.name)}</span>`;
+      const flag = f.__dupInQueue ? `ซ้ำกับ ${f.__dupInQueue} ในคิวนี้`
+        : (f.__prior ? priorFileText(f.__prior) : '');
+      chip.innerHTML = `<span>${escapeHtml(f.name)}</span>` +
+        (flag ? ` <span class="pill warn" title="${escapeHtml(flag)}">⚠ ${f.__prior && f.__prior.kind==='same' || f.__dupInQueue ? 'ซ้ำ' : 'ชื่อซ้ำ'}</span>` : '');
+      if(flag) chip.title = flag;
       const btn = document.createElement('button');
       btn.textContent = '✕'; btn.title = 'ลบไฟล์นี้';
       btn.onclick = () => { queuedFiles.splice(i,1); renderFileList(); };
@@ -460,9 +514,32 @@
     const p = n => String(n).padStart(2,'0');
     return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate());
   }
+  // Flags each bill that (a) came from a file already checked in an earlier
+  // run, (b) carries an invoice number already seen in an earlier run, or
+  // (c) repeats an invoice number from another page in this same batch.
+  async function markDuplicates(bills, files){
+    const byName = new Map(files.map(f => [f.name, f]));
+    const seen = new Map();
+    for(const b of bills){
+      const notes = [];
+      const f = byName.get(b.file);
+      if(f){ await fileHash(f); const pr = findPriorFile(f); if(pr) notes.push(priorFileText(pr)); }
+      const inv = (b.excel.invoiceNo || '').trim();
+      if(inv.length >= 8){
+        let prior = null;
+        outer: for(const e of runHistory){
+          for(const r of (e.rows || [])){ if((r.invoiceNo||'').trim() === inv){ prior = { e, r }; break outer; } }
+        }
+        if(prior) notes.push(`เลขที่ ${inv} เคยตรวจแล้ว (${fmtWhen(prior.e.ts)} โดย ${prior.e.inspector}, ไฟล์ ${prior.r.file})`);
+        if(seen.has(inv)){ const o = seen.get(inv); notes.push(`เลขที่ ${inv} ซ้ำกับ ${o.file} หน้า ${o.page}`); }
+        else seen.set(inv, b);
+      }
+      b.dupNote = notes.join(' · ');
+    }
+  }
   function billToHistoryRow(b){
     return {
-      file: b.file, page: b.page, isCPAll: b.isCPAll, vendor: b.excel.vendor||'', isCopy: !!b.isCopy,
+      file: b.file, page: b.page, isCPAll: b.isCPAll, vendor: b.excel.vendor||'', dupNote: b.dupNote||'', isCopy: !!b.isCopy,
       invoiceNo: b.excel.invoiceNo||'', branchCode: b.excel.branchCode||'',
       date: b.excel.date ? localISODate(b.excel.date) : '',
       itemDescription: b.excel.itemDescription||'',
@@ -472,7 +549,7 @@
       overallScore: b.overallScore
     };
   }
-  function recordRunToHistory(inspector, fileNames, bills){
+  function recordRunToHistory(inspector, fileNames, bills, fileMeta){
     const cpAllBills = bills.filter(b=>b.isCPAll);
     const passCount = bills.filter(b => b.overallScore*100 >= (Number(els.threshold.value)||0)).length;
     const entry = {
@@ -480,6 +557,7 @@
       ts: new Date().toISOString(),
       inspector: inspector || '(ไม่ระบุ)',
       fileNames,
+      fileMeta: fileMeta || [],
       totalBills: bills.length,
       cpAllCount: cpAllBills.length,
       passCount,
@@ -505,6 +583,29 @@
       };
     }
   }
+  // Amounts are stored as real numbers (not text) so the sheet can be summed
+  // and sorted; "1,234.50" -> 1234.5, blank/unparseable -> empty cell.
+  function toNum(v){
+    if(v === '' || v === null || v === undefined) return '';
+    const n = parseFloat(String(v).replace(/,/g,''));
+    return isNaN(n) ? '' : n;
+  }
+  // Applies a #,##0.00 display format to every numeric cell in the named
+  // header columns (data rows only).
+  function formatNumberCols(sheet, headerNames, colCount){
+    const idx = [];
+    for(let c=0; c<colCount; c++){
+      const h = sheet[XLSX.utils.encode_cell({ r:0, c })];
+      if(h && headerNames.includes(h.v)) idx.push(c);
+    }
+    const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+    for(let r=1; r<=range.e.r; r++){
+      for(const c of idx){
+        const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+        if(cell && cell.t === 'n') cell.z = '#,##0.00';
+      }
+    }
+  }
   function buildWorkbookFromRows(rows, meta){
     const wb = XLSX.utils.book_new();
     // Single detail sheet — pass/fail columns use ✅/❌ instead of ใช่/ไม่ใช่
@@ -520,21 +621,23 @@
       'ไฟล์': r.file, 'หน้า': r.page,
       'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'ผู้ออกใบเสร็จ': r.vendor || (r.isCPAll ? 'CP ALL' : ''), 'วันที่เอกสาร': r.date,
       'รายการสินค้า': r.itemDescription || '',
-      'ก่อน VAT': r.subtotal, 'รวมทั้งสิ้น': r.total,
-      'ยอดที่เลือกใช้': r.chosenAmount, 'ประเภทยอด': r.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
-      '% ตรง': (r.overallScore*100).toFixed(1),
-      'รายการตัดVat': r.useIncludeVat ? '' : (r.chosenAmount || ''),
+      'ก่อน VAT': toNum(r.subtotal), 'รวมทั้งสิ้น': toNum(r.total),
+      'ยอดที่เลือกใช้': toNum(r.chosenAmount), 'ประเภทยอด': r.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
+      '% ตรง': Math.round(r.overallScore*1000)/10,
+      'รายการตัดVat': r.useIncludeVat ? '' : toNum(r.chosenAmount),
       'ชื่อลูกค้าถูกต้อง': r.namePass ? '✅' : '❌',
       'ที่อยู่ลูกค้าถูกต้อง': r.addressOk ? '✅' : '❌',
       'ประเภทเอกสาร': r.isCopy ? 'สำเนา' : 'ต้นฉบับ',
-      'อยู่ในกำหนดวันที่': r.inRange ? '✅' : '❌'
+      'อยู่ในกำหนดวันที่': r.inRange ? '✅' : '❌',
+      'ตรวจซ้ำ': r.dupNote || ''
     }));
     const detailSheet = XLSX.utils.json_to_sheet(detailRows, {
       header: ['ไฟล์','หน้า','ใบที่','เลขสาขา','ผู้ออกใบเสร็จ','วันที่เอกสาร',
         'รายการสินค้า','ก่อน VAT','รวมทั้งสิ้น','ยอดที่เลือกใช้','ประเภทยอด','% ตรง',
-        'รายการตัดVat','ชื่อลูกค้าถูกต้อง','ที่อยู่ลูกค้าถูกต้อง','ประเภทเอกสาร','อยู่ในกำหนดวันที่']
+        'รายการตัดVat','ชื่อลูกค้าถูกต้อง','ที่อยู่ลูกค้าถูกต้อง','ประเภทเอกสาร','อยู่ในกำหนดวันที่','ตรวจซ้ำ']
     });
-    styleHeaderRow(detailSheet, 17);
+    styleHeaderRow(detailSheet, 18);
+    formatNumberCols(detailSheet, ['ก่อน VAT','รวมทั้งสิ้น','ยอดที่เลือกใช้','รายการตัดVat'], 18);
     XLSX.utils.book_append_sheet(wb, detailSheet, 'รายละเอียด');
     // "กรอกเอกสาร" sheet — same column layout as the Cafe Amazon COCO/HANA
     // master data sheet the user works from (CODE / ชื่อร้าน / จำนวนเงิน /
@@ -556,10 +659,10 @@
       return {
         'CODE': digits || '',
         'ชื่อร้าน': info.name,
-        'จำนวนเงิน': r.chosenAmount || '',
+        'จำนวนเงิน': toNum(r.chosenAmount),
         'รายการ': classifyProduct(r.itemDescription, r.file).label,
         'Note': '',
-        'รายการตัดVat': r.useIncludeVat ? '' : (r.chosenAmount || ''),
+        'รายการตัดVat': r.useIncludeVat ? '' : toNum(r.chosenAmount),
         'ผู้จัดการเขต': info.manager
       };
     }).filter(Boolean);
@@ -567,6 +670,7 @@
       header: ['CODE','ชื่อร้าน','จำนวนเงิน','รายการ','Note','รายการตัดVat','ผู้จัดการเขต']
     });
     styleHeaderRow(fillSheet, 7);
+    formatNumberCols(fillSheet, ['จำนวนเงิน','รายการตัดVat'], 7);
     XLSX.utils.book_append_sheet(wb, fillSheet, 'กรอกเอกสาร');
     return wb;
   }
@@ -837,7 +941,11 @@
   // ---------- excel field extraction ----------
   function extractInvoiceNo(rawText){
     const m = rawText.match(/เลขที่\s*[:：]?\s*([A-Za-z0-9]{5,20})([ \t]+[0-9]{4,10})?/);
-    if(!m) return '';
+    if(!m){
+      // English-labelled receipts (e.g. Go Wholesale: "Receipt No. CM1I02526100025635")
+      const en = rawText.match(/Receipt\s*No\.?\s*[:：]?\s*([A-Za-z0-9]{8,24})/i);
+      return en ? en[1] : '';
+    }
     let val = m[1].trim();
     // Some issuers (e.g. Tops) print an all-digit document number as two
     // groups with a space between them ("0012810261 0000458"). Join them back
@@ -1053,7 +1161,7 @@
   const SUBTOTAL_LABELS = ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม','มูลค่าสินค้าที่เสียภาษีมูลค่าเพิ่ม',
     'มูลค่าก่อนภาษีมูลค่าเพิ่ม','จำนวนเงินก่อนภาษีมูลค่าเพิ่ม','ยอดก่อนภาษีมูลค่าเพิ่ม','ราคาสินค้าก่อนภาษี'];
   const TOTAL_LABELS = ['รวมเงินทั้งสิ้น','รวมทั้งสิ้น','จำนวนเงินรวมทั้งสิ้น','ยอดรวมทั้งสิ้น',
-    'ยอดเงินสุทธิ','มูลค่าสินค้าที่รวมภาษีมูลค่าเพิ่ม','มูลค่าสินค้ารวมภาษีมูลค่าเพิ่ม','รวมเงิน'];
+    'ยอดเงินสุทธิ','ยอดเงินรวม','มูลค่าสินค้าที่รวมภาษีมูลค่าเพิ่ม','มูลค่าสินค้ารวมภาษีมูลค่าเพิ่ม','รวมเงิน'];
   function extractCpallAmounts(rawText){
     let subtotal = extractAmountByLabelList(rawText, SUBTOTAL_LABELS)
       || extractAmountFuzzy(rawText, ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม'], 0.82)
@@ -1093,7 +1201,7 @@
   // skips past any other header leftovers and pure-number lines first.
   function extractItemDescription(rawText){
     const lines = rawText.split('\n').map(l=>l.trim()).filter(Boolean);
-    const headerIdx = lines.findIndex(l => l.includes('รายการสินค้า') || l.includes('ชื่อสินค้า')
+    const headerIdx = lines.findIndex(l => l.includes('รายการสินค้า') || l.includes('ชื่อสินค้า') || /\bDescription\b/i.test(l)
       || similarityRatio(stripSpace('รายการสินค้า'), stripSpace(l)) >= 0.75);
     if(headerIdx === -1) return '';
     for(let i=headerIdx+1; i<Math.min(lines.length, headerIdx+8); i++){
@@ -1103,10 +1211,12 @@
       if(/[ก-๙]/.test(l)){
         // Drop a leading "NO. qty" / "NO. flag barcode" prefix and any trailing
         // qty/price/amount columns that share the line with the item name.
-        return l.replace(/^\d+\s+(?:[A-Za-z]\s+)?\d{6,}\s+/, '')
-                .replace(/^\d+\s+\d+\s+/, '')
-                .replace(/(?:\s+[\d,]+\.\d{2})+\s*$/, '')
-                .trim();
+        let t = l.replace(/^\d+\s+(?:[\d.]+\s+)?(?:[A-Za-z]\s+)?\d{6,}\s+/, '')
+                 .replace(/^\d+\s+\d+\s+/, '');
+        // trailing price/amount columns and unit/VAT-code letters ("PACK 190.00 V 190.00")
+        const toks = t.split(/\s+/);
+        while(toks.length > 1 && /^([\d,]+\.\d{2}|[A-Z]{1,5})$/.test(toks[toks.length-1])) toks.pop();
+        return toks.join(' ').trim();
       }
     }
     return '';
@@ -1420,13 +1530,16 @@
       }
     }
 
-    els.statusLine.textContent = `เสร็จสิ้น — ตรวจแล้ว ${allBills.length} บิล จาก ${files.length} ไฟล์`;
+    await markDuplicates(allBills, files);
+    const dupCount = allBills.filter(b => b.dupNote).length;
+    els.statusLine.textContent = `เสร็จสิ้น — ตรวจแล้ว ${allBills.length} บิล จาก ${files.length} ไฟล์` +
+      (dupCount ? ` · ⚠ พบรายการที่เคยตรวจแล้ว/ซ้ำ ${dupCount} บิล` : '');
     renderTable();
     renderCopySection();
     els.exportBtn.disabled = allBills.length === 0;
     els.runBtn.disabled = false;
     if(allBills.length > 0){
-      recordRunToHistory(inspector, files.map(f=>f.name), allBills);
+      recordRunToHistory(inspector, files.map(f=>f.name), allBills, files.map(f=>({ name:f.name, hash:f.__hash||'', size:f.size })));
     }
   });
 
@@ -1505,7 +1618,7 @@
       tr.innerHTML = `
         <td class="mono">${i+1}</td>
         <td style="text-align:center;">${classifyProduct(b.excel.itemDescription, b.file).emoji}</td>
-        <td>${escapeHtml(b.file)}${b.isCopy ? ' <span class="pill copy">สำเนา</span>' : ''}</td>
+        <td>${escapeHtml(b.file)}${b.isCopy ? ' <span class="pill copy">สำเนา</span>' : ''}${b.dupNote ? ` <span class="pill warn" title="${escapeHtml(b.dupNote)}">⚠ ซ้ำ</span><div style="font-size:11px;color:var(--ink-soft);">${escapeHtml(b.dupNote)}</div>` : ''}</td>
         <td class="mono">${escapeHtml(b.excel.invoiceNo||'—')}</td>
         <td class="mono">${escapeHtml(b.excel.branchCode||'—')}</td>
         <td>${escapeHtml(b.excel.vendor || (b.isCPAll ? 'CP ALL' : '—'))}</td>
