@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>ตรวจสอบใบเสร็จ CP ALL / 7-Eleven (OCR)</title>
+<title>ตรวจสอบใบเสร็จ/ใบกำกับภาษี (OCR)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -161,9 +161,9 @@
 
   <header class="top">
     <div>
-      <p class="eyebrow">CP ALL / 7-Eleven Receipt · OCR Verification</p>
-      <h1>ตรวจสอบใบเสร็จ/ใบกำกับภาษี CP ALL</h1>
-      <p class="top-sub">ตรวจเฉพาะใบเสร็จ บมจ.ซีพี ออลล์ — เช็คว่าเป็นเอกสารของผู้ออกจริง ชื่อ+ที่อยู่ลูกค้าครบถ้วนสะกดถูก อ่านเลขสาขาจากช่อง "สาขาที่ออกใบกำกับภาษี" แล้วเลือกยอดเงินตามวันที่ที่กำหนด</p>
+      <p class="eyebrow">Receipt · OCR Verification</p>
+      <h1>ตรวจสอบใบเสร็จ/ใบกำกับภาษี</h1>
+      <p class="top-sub">รองรับใบเสร็จของผู้ออกทุกเจ้า (CP ALL / 7-Eleven, Tops, อื่นๆ) — เช็คชื่อ+ที่อยู่+เลขผู้เสียภาษีลูกค้าครบถ้วนสะกดถูก อ่านเลขสาขาจากตราปั๊ม แล้วเลือกยอดเงินตามวันที่ที่กำหนด</p>
     </div>
     <div class="privacy-pill"><span class="dot"></span>ประมวลผลในเบราว์เซอร์ทั้งหมด — ไฟล์ไม่ถูกส่งขึ้นเซิร์ฟเวอร์</div>
   </header>
@@ -171,7 +171,7 @@
   <div class="grid">
     <div>
       <div class="panel">
-        <h2>1 · ผู้ออกใบเสร็จ (ต้องเป็นเอกสารของ CP ALL)</h2>
+        <h2>1 · ผู้ออกใบเสร็จ CP ALL (ไม่บังคับ — เจ้าอื่นไม่ต้องกรอก)</h2>
         <div class="field-row">
           <label>ที่อยู่ผู้ออก (เช็คแบบ "มีคำนี้ไหม" ทุกคำ)</label>
           <textarea id="issuerAddrInput" style="min-height:56px;">313 อาคาร ซี.พี.ทาวเวอร์ ชั้น24 ถ.สีลม แขวงสีลม เขตบางรัก กรุงเทพฯ 10500</textarea>
@@ -180,7 +180,7 @@
           <label>เลขประจำตัวผู้เสียภาษีผู้ออก</label>
           <input type="text" id="issuerTaxIdInput" value="0107542000011">
         </div>
-        <p class="hint">แค่เช็คว่ามีเลขผู้เสียภาษี + มีคำในที่อยู่ + มีข้อความ "สาขาที่ออกใบกำกับภาษี" อยู่ในเอกสารหรือไม่ ถ้าไม่ผ่านจะไม่นับเป็นเอกสาร CP ALL และไม่รวมใน Excel สรุป</p>
+        <p class="hint">ใช้แค่ระบุว่าเอกสารนี้เป็นของ CP ALL หรือไม่ (เพื่อคิดคะแนนส่วนผู้ออก) — ถ้าเป็นใบเสร็จของเจ้าอื่น เช่น Tops ระบบยังตรวจชื่อ/ที่อยู่/เลขผู้เสียภาษีลูกค้าตามปกติ ไม่ตัดทิ้ง</p>
       </div>
 
       <div class="panel">
@@ -281,7 +281,7 @@
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
     <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
     <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้<br>
-    <span style="opacity:0.5;">build 2026-10-19-4</span>
+    <span style="opacity:0.5;">build 2026-10-30-1</span>
   </footer>
 </div>
 
@@ -459,11 +459,17 @@
       try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(runHistory)); }catch(e2){}
     }
   }
+  // Local-calendar YYYY-MM-DD. toISOString() converts to UTC first, which in
+  // Bangkok (UTC+7) turns local midnight into the PREVIOUS day.
+  function localISODate(d){
+    const p = n => String(n).padStart(2,'0');
+    return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate());
+  }
   function billToHistoryRow(b){
     return {
-      file: b.file, page: b.page, isCPAll: b.isCPAll, isCopy: !!b.isCopy,
+      file: b.file, page: b.page, isCPAll: b.isCPAll, vendor: b.excel.vendor||'', isCopy: !!b.isCopy,
       invoiceNo: b.excel.invoiceNo||'', branchCode: b.excel.branchCode||'',
-      date: b.excel.date ? b.excel.date.toISOString().slice(0,10) : '',
+      date: b.excel.date ? localISODate(b.excel.date) : '',
       itemDescription: b.excel.itemDescription||'',
       namePass: b.namePass, addressOk: b.addressOk, inRange: b.inRange,
       subtotal: b.excel.subtotal||'', total: b.excel.total||'',
@@ -517,7 +523,7 @@
     // pass/fail-style columns, per how the user actually reads this sheet.
     const detailRows = rows.map(r => ({
       'ไฟล์': r.file, 'หน้า': r.page,
-      'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'วันที่เอกสาร': r.date,
+      'ใบที่': r.invoiceNo, 'เลขสาขา': r.branchCode, 'ผู้ออกใบเสร็จ': r.vendor || (r.isCPAll ? 'CP ALL' : ''), 'วันที่เอกสาร': r.date,
       'รายการสินค้า': r.itemDescription || '',
       'ก่อน VAT': r.subtotal, 'รวมทั้งสิ้น': r.total,
       'ยอดที่เลือกใช้': r.chosenAmount, 'ประเภทยอด': r.useIncludeVat ? 'รวม VAT' : 'ตัด VAT',
@@ -529,11 +535,11 @@
       'อยู่ในกำหนดวันที่': r.inRange ? '✅' : '❌'
     }));
     const detailSheet = XLSX.utils.json_to_sheet(detailRows, {
-      header: ['ไฟล์','หน้า','ใบที่','เลขสาขา','วันที่เอกสาร',
+      header: ['ไฟล์','หน้า','ใบที่','เลขสาขา','ผู้ออกใบเสร็จ','วันที่เอกสาร',
         'รายการสินค้า','ก่อน VAT','รวมทั้งสิ้น','ยอดที่เลือกใช้','ประเภทยอด','% ตรง',
         'รายการตัดVat','ชื่อลูกค้าถูกต้อง','ที่อยู่ลูกค้าถูกต้อง','ประเภทเอกสาร','อยู่ในกำหนดวันที่']
     });
-    styleHeaderRow(detailSheet, 16);
+    styleHeaderRow(detailSheet, 17);
     XLSX.utils.book_append_sheet(wb, detailSheet, 'รายละเอียด');
     // "กรอกเอกสาร" sheet — same column layout as the Cafe Amazon COCO/HANA
     // master data sheet the user works from (CODE / ชื่อร้าน / จำนวนเงิน /
@@ -548,7 +554,7 @@
     // A row only earns a place on this sheet if the branch lookup actually
     // found a district manager — a row with no ผู้จัดการเขต is dropped
     // entirely rather than kept with a blank cell, per the user's own call.
-    const fillRows = rows.filter(r=>r.isCPAll).map(r => {
+    const fillRows = rows.map(r => {
       const digits = String(r.branchCode||'').replace(/\D/g,'');
       const info = lookupBranchInfo(r.branchCode);
       if(!info || !info.manager) return null;
@@ -572,7 +578,7 @@
   function downloadHistoryEntry(entry){
     const wb = buildWorkbookFromRows(entry.rows, { inspector: entry.inspector, when: new Date(entry.ts).toLocaleString('th-TH') });
     const stamp = entry.ts.slice(0,10);
-    XLSX.writeFile(wb, `cpall_invoice_results_${stamp}_${entry.inspector}.xlsx`);
+    XLSX.writeFile(wb, `invoice_results_${stamp}_${entry.inspector}.xlsx`);
   }
   function renderHistory(){
     // Filter dropdown options (keep current selection if still valid)
@@ -596,7 +602,7 @@
       const when = new Date(entry.ts).toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' });
       div.innerHTML = `
         <div class="hrow1"><span class="hwho">${escapeHtml(entry.inspector)}</span><span class="hwhen">${escapeHtml(when)}</span></div>
-        <div class="hmeta">${entry.fileNames.length} ไฟล์ · ${entry.totalBills} บิล (CP ALL ${entry.cpAllCount}) · ผ่านเกณฑ์ ${entry.passCount}/${entry.totalBills}</div>
+        <div class="hmeta">${entry.fileNames.length} ไฟล์ · ${entry.totalBills} บิล · ผ่านเกณฑ์ ${entry.passCount}/${entry.totalBills}</div>
         <div class="hactions">
           <button class="small" data-act="dl">⬇ Excel</button>
           <button class="small" data-act="del">ลบ</button>
@@ -835,9 +841,16 @@
 
   // ---------- excel field extraction ----------
   function extractInvoiceNo(rawText){
-    const m = rawText.match(/เลขที่\s*[:：]?\s*([A-Za-z0-9]{5,20})/);
+    const m = rawText.match(/เลขที่\s*[:：]?\s*([A-Za-z0-9]{5,20})([ \t]+[0-9]{4,10})?/);
     if(!m) return '';
     let val = m[1].trim();
+    // Some issuers (e.g. Tops) print an all-digit document number as two
+    // groups with a space between them ("0012810261 0000458"). Join them back
+    // into one number — only for all-digit numbers, so CP ALL's "S…" numbers
+    // are never glued to whatever follows them on the same OCR line.
+    if(m[2] && /^\d{8,}$/.test(val) && (val + m[2].trim()).length <= 24){
+      val = val + m[2].trim();
+    }
     // CP ALL's printed "เลขที่" (invoice/document number) always starts with
     // the letter "S" in practice — confirmed against several different real
     // receipts where it OCR's as a plain "5" instead (the same S/5 font
@@ -852,12 +865,39 @@
     }
     return val;
   }
-  function extractInvoiceDate(rawText){
-    const m = rawText.match(/วันที่\s*[:：]?\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if(!m) return null;
-    const day=+m[1], month=+m[2], by=+m[3];
-    const d = new Date(by-543, month-1, day); // CP ALL receipts use the Buddhist calendar
+  const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const THAI_MONTH_ABBR = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  function thaiMonthIndex(word){
+    const w = stripSpace(word);
+    let i = THAI_MONTHS.indexOf(w); if(i !== -1) return i+1;
+    i = THAI_MONTH_ABBR.map(x=>stripSpace(x)).indexOf(w); if(i !== -1) return i+1;
+    // tolerate a couple of OCR-misread characters in a full month name
+    let best = 0, bestI = -1;
+    THAI_MONTHS.forEach((mn, k) => { const r = similarityRatio(mn, w); if(r > best){ best = r; bestI = k; } });
+    return best >= 0.8 ? bestI+1 : 0;
+  }
+  function buildDate(day, month, yearRaw){
+    let y = +yearRaw;
+    if(yearRaw.length <= 2) y += 2500;          // "69" -> 2569 (BE)
+    if(y > 2400) y -= 543;                      // Buddhist calendar -> CE
+    const d = new Date(y, month-1, day);
     return isNaN(d.getTime()) ? null : d;
+  }
+  // Handles both "01/10/2569" (CP ALL) and "14 ตุลาคม 2569" / "14 ต.ค. 69"
+  // (Tops and other issuers). Scans every "วันที่" so a leading label that
+  // is followed by something else doesn't hide a later valid date.
+  function extractInvoiceDate(rawText){
+    const re = /วันที่\s*[:：]?\s*(\d{1,2})\s*(?:\/\s*(\d{1,2})\s*\/|([ก-๙][ก-๙.\s]{1,14}?))\s*(\d{4}|\d{2})(?!\d)/g;
+    let m;
+    while((m = re.exec(rawText)) !== null){
+      const day = +m[1];
+      const month = m[2] ? +m[2] : thaiMonthIndex(m[3]);
+      if(!month || month > 12 || day < 1 || day > 31) continue;
+      const d = buildDate(day, month, m[4]);
+      if(d) return d;
+    }
+    return null;
   }
   function extractBranchCode(rawText){
     // Method 1 (PRIMARY): the ink STAMP at the bottom of the document —
@@ -998,29 +1038,81 @@
     // so it's more trustworthy than a grabbed figure that doesn't satisfy it.
     return (Math.round(expected*100)/100).toFixed(2);
   }
+  // Exact line-start label match (after removing spaces) — the label list is
+  // in priority order, and the LAST decimal on that line is the value. Works
+  // for any issuer's summary block ("รวมเงิน : 108.00",
+  // "มูลค่าสินค้าที่เสียภาษีมูลค่าเพิ่ม : 100.93"), where the CP ALL-specific
+  // fuzzy match below has nothing to anchor on.
+  function extractAmountByLabelList(rawText, labels){
+    const lines = rawText.split('\n').map(l=>l.trim()).filter(Boolean);
+    for(const label of labels){
+      const lab = stripSpace(canonicalizeText(label));
+      for(const line of lines){
+        if(!stripSpace(canonicalizeText(line)).startsWith(lab)) continue;
+        const all = [...line.matchAll(/\d{1,3}(?:,\d{3})*\.\d{2}/g)];
+        if(all.length){ const mm = all[all.length-1]; return fixParenLeadingOne(line, mm.index, mm[0]); }
+      }
+    }
+    return '';
+  }
+  const SUBTOTAL_LABELS = ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม','มูลค่าสินค้าที่เสียภาษีมูลค่าเพิ่ม',
+    'มูลค่าก่อนภาษีมูลค่าเพิ่ม','จำนวนเงินก่อนภาษีมูลค่าเพิ่ม','ยอดก่อนภาษีมูลค่าเพิ่ม','ราคาสินค้าก่อนภาษี'];
+  const TOTAL_LABELS = ['รวมเงินทั้งสิ้น','รวมทั้งสิ้น','จำนวนเงินรวมทั้งสิ้น','ยอดรวมทั้งสิ้น',
+    'ยอดเงินสุทธิ','มูลค่าสินค้าที่รวมภาษีมูลค่าเพิ่ม','มูลค่าสินค้ารวมภาษีมูลค่าเพิ่ม','รวมเงิน'];
   function extractCpallAmounts(rawText){
-    let subtotal = extractAmountFuzzy(rawText, ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม'], 0.82)
+    let subtotal = extractAmountByLabelList(rawText, SUBTOTAL_LABELS)
+      || extractAmountFuzzy(rawText, ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม'], 0.82)
       || extractAmountForward(rawText, ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม','ก่อนภาษีมูลค่าเพิ่ม'], 30);
-    let total = extractAmountFuzzy(rawText, ['รวมเงินทั้งสิ้น'], 0.82)
+    let total = extractAmountByLabelList(rawText, TOTAL_LABELS)
+      || extractAmountFuzzy(rawText, ['รวมเงินทั้งสิ้น'], 0.82)
       || extractAmountForward(rawText, ['รวมเงินทั้งสิ้น'], 30);
     const all = extractAllAmounts(rawText);
-    if(!total && all.length>=1) total = all[all.length-1];
+    if(!total && all.length>=1){
+      // CP ALL: the grand total is the last amount on the page. Other issuers
+      // print change/payment lines after it (the last figure can be 0.00), so
+      // fall back to the largest amount when the last one is zero.
+      const last = all[all.length-1];
+      if(parseFloat(last.replace(/,/g,'')) > 0) total = last;
+      else total = all.reduce((a,b) => parseFloat(b.replace(/,/g,'')) > parseFloat(a.replace(/,/g,'')) ? b : a);
+    }
     if(!subtotal && all.length>=4) subtotal = all[all.length-4];
     subtotal = correctSubtotalWithVatMath(subtotal, total, all);
     return { subtotal, total };
+  }
+  // Issuer (vendor) name — first company-looking line near the top that is
+  // not the customer (ปตท.). Cut at the branch label / document number /
+  // first digit so only the company name itself is kept.
+  function extractVendorName(rawText){
+    const lines = rawText.split('\n').map(l=>l.trim()).filter(Boolean).slice(0, 14);
+    for(const l of lines){
+      if(/ปตท|น้ำมันและการค้าปลีก|ผู้ซื้อ/.test(l)) continue;
+      const mm = l.match(/(?:บริษัท|บมจ\.?|บจก\.?|หจก\.?|ห้างหุ้นส่วน)\s*[^\d]*/);
+      if(!mm) continue;
+      const name = mm[0].replace(/\s*(สาขา|เลขที่|เลขประจำตัว|ใบเสร็จ|ใบกำกับ).*$/,'').trim();
+      if(name.replace(/\s/g,'').length >= 6) return name;
+    }
+    return '';
   }
   // Best-effort grab of the first actual item row's description (e.g.
   // "โซดาสิงห์ 325 มล. แพ็ค 6") from under the "รายการสินค้า" column header —
   // skips past any other header leftovers and pure-number lines first.
   function extractItemDescription(rawText){
     const lines = rawText.split('\n').map(l=>l.trim()).filter(Boolean);
-    const headerIdx = lines.findIndex(l => l.includes('รายการสินค้า') || similarityRatio(stripSpace('รายการสินค้า'), stripSpace(l)) >= 0.75);
+    const headerIdx = lines.findIndex(l => l.includes('รายการสินค้า') || l.includes('ชื่อสินค้า')
+      || similarityRatio(stripSpace('รายการสินค้า'), stripSpace(l)) >= 0.75);
     if(headerIdx === -1) return '';
     for(let i=headerIdx+1; i<Math.min(lines.length, headerIdx+8); i++){
       const l = lines[i];
       if(/^[\d.,\s]+$/.test(l)) continue;
       if(/ราคาต่อหน่วย|ราคาภาษีมูลค่าเพิ่ม|^จำนวน$|^NO\.?$/i.test(l)) continue;
-      if(/[ก-๙]/.test(l)) return l.replace(/^\d+\s+\d+\s+/, '').trim();
+      if(/[ก-๙]/.test(l)){
+        // Drop a leading "NO. qty" / "NO. flag barcode" prefix and any trailing
+        // qty/price/amount columns that share the line with the item name.
+        return l.replace(/^\d+\s+(?:[A-Za-z]\s+)?\d{6,}\s+/, '')
+                .replace(/^\d+\s+\d+\s+/, '')
+                .replace(/(?:\s+[\d,]+\.\d{2})+\s*$/, '')
+                .trim();
+      }
     }
     return '';
   }
@@ -1030,6 +1122,7 @@
       invoiceNo: extractInvoiceNo(rawText),
       date: extractInvoiceDate(rawText),
       branchCode: extractBranchCode(rawText),
+      vendor: extractVendorName(rawText),
       subtotal: amounts.subtotal,
       total: amounts.total,
       itemDescription: extractItemDescription(rawText)
@@ -1276,7 +1369,7 @@
         const custBBox = customerTaxId && tessWords.length ? findBboxDigits(customerTaxId, tessWords) : null;
         const custPass = custR.score >= 0.9;
 
-        const addressOk = isCPAll && namePass && addrPass && custPass;
+        const addressOk = namePass && addrPass && custPass;
 
         const excel = extractExcelFields(rawText);
         // (invoiceNo's leading S/5 fix lives directly in extractInvoiceNo —
@@ -1324,7 +1417,12 @@
         const useIncludeVat = addressOk && inRange;
         const chosenAmount = useIncludeVat ? excel.total : excel.subtotal;
 
-        const overallScore = (issuerTaxR.score*0.10) + (issuerAddrAvg*0.10) + (nameAvg*0.40) + (addrAvg*0.25) + (custR.score*0.15);
+        // The CP ALL issuer checks only count towards the score when the
+        // document actually is a CP ALL one — otherwise a receipt from any
+        // other issuer would lose 20% for fields that can't apply to it.
+        const overallScore = isCPAll
+          ? (issuerTaxR.score*0.10) + (issuerAddrAvg*0.10) + (nameAvg*0.40) + (addrAvg*0.25) + (custR.score*0.15)
+          : ((nameAvg*0.40) + (addrAvg*0.25) + (custR.score*0.15)) / 0.80;
 
         allBills.push({
           file: entry.file.name, page: p+1, totalPagesInFile: entry.canvases.length,
@@ -1397,8 +1495,8 @@
       .filter(b => !failOnly || b.pct < threshold);
 
     const passCount = allBills.filter(b => b.overallScore*100 >= threshold).length;
-    const cpAllCount = allBills.filter(b => b.isCPAll).length;
-    els.summaryText.textContent = `ผ่านเกณฑ์ ${passCount}/${allBills.length} บิล · เป็นเอกสาร CP ALL ${cpAllCount}/${allBills.length}`;
+    const vendorCount = new Set(allBills.map(b => b.excel.vendor || (b.isCPAll ? 'CP ALL' : '')).filter(Boolean)).size;
+    els.summaryText.textContent = `ผ่านเกณฑ์ ${passCount}/${allBills.length} บิล · ผู้ออก ${vendorCount} เจ้า`;
 
     if(rows.length === 0){
       const div = document.createElement('div');
@@ -1413,7 +1511,7 @@
     table.innerHTML = `<thead><tr>
       <th style="width:26px;">#</th><th style="width:28px;"></th><th>ไฟล์</th>
       <th style="width:90px;">เลขที่ใบกำกับ</th><th style="width:65px;">เลขสาขา</th>
-      <th style="width:60px;">CP ALL</th>
+      <th style="width:110px;">ผู้ออก</th>
       <th style="width:80px;">ที่อยู่ถูกต้อง</th>
       <th style="width:75px;">ในกำหนดวันที่</th><th style="width:80px;">ยอดที่ใช้</th>
       <th style="width:90px;">ประเภทยอด</th><th>รายการสินค้า</th><th style="width:60px;">% ตรง</th></tr></thead>`;
@@ -1429,7 +1527,7 @@
         <td>${escapeHtml(b.file)}${b.isCopy ? ' <span class="pill copy">สำเนา</span>' : ''}</td>
         <td class="mono">${escapeHtml(b.excel.invoiceNo||'—')}</td>
         <td class="mono">${escapeHtml(b.excel.branchCode||'—')}</td>
-        <td>${b.isCPAll ? '✅' : '❌'}</td>
+        <td>${escapeHtml(b.excel.vendor || (b.isCPAll ? 'CP ALL' : '—'))}</td>
         <td>${b.addressOk ? '✅' : '❌'}</td>
         <td>${b.inRange ? '✅' : '❌'}</td>
         <td class="mono">${escapeHtml(b.chosenAmount || '—')}</td>
@@ -1527,7 +1625,7 @@
 
     const iTitle = document.createElement('div');
     iTitle.className = 'detail-section-title';
-    iTitle.textContent = 'ผู้ออกใบเสร็จ (CP ALL) — เช็คแบบ "มีครบไหม"';
+    iTitle.textContent = `ผู้ออกใบเสร็จ: ${b.excel.vendor || '(อ่านชื่อไม่ได้)'}${b.isCPAll ? ' — ตรงกับ CP ALL' : ' — ไม่ใช่ CP ALL (ไม่ถูกนับเป็นเงื่อนไข)'}`;
     wrap.appendChild(iTitle);
     const iList = document.createElement('div');
     iList.className = 'field-list';
@@ -1613,7 +1711,7 @@
     const rows = allBills.map(billToHistoryRow);
     const wb = buildWorkbookFromRows(rows, { inspector, when: new Date().toLocaleString('th-TH') });
     const stamp = new Date().toISOString().slice(0,10);
-    XLSX.writeFile(wb, `cpall_invoice_results_${stamp}.xlsx`);
+    XLSX.writeFile(wb, `invoice_results_${stamp}.xlsx`);
   });
 
   loadFeedback();
