@@ -263,7 +263,7 @@
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
     <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
     <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้<br>
-    <span style="opacity:0.5;">build 2026-10-30-4</span>
+    <span style="opacity:0.5;">build 2026-10-30-5</span>
   </footer>
 </div>
 
@@ -788,50 +788,41 @@
   // Falls back to fuzzy-tolerant text anchors, then to the full page, if
   // the digit anchor can't be found either.
   function extractCustomerSection(rawText, customerTaxId){
-    let start = -1;
+    // Where the customer's tax-id digits sit relative to the name differs by
+    // issuer: CP ALL / Tops print the tax id BEFORE the name, while Go
+    // Wholesale / CP Axtra / Mr. D.I.Y. print it AFTER the name+address. So
+    // the window can't start "after the tax id" — it starts at whichever
+    // comes first: the buyer label ("ชื่อผู้ซื้อ", "ชื่อลูกค้า", "Bill To"...)
+    // or the tax id itself, and runs to the item-table header.
+    let taxStart = -1;
     if(customerTaxId){
       const pattern = customerTaxId.split('').join('\\s*');
       try{
         const re = new RegExp(pattern, 'g');
-        let m, lastEnd = -1;
+        let m;
         while((m = re.exec(rawText)) !== null){
-          lastEnd = m.index + m[0].length;
+          taxStart = m.index;
           if(m[0].length === 0) re.lastIndex++;
         }
-        if(lastEnd !== -1) start = lastEnd;
       }catch(e){}
     }
-    if(start === -1){
-      const anchorPatterns = [/ชื่อผู้ซื้อ/, /ผู้ซื้อสินค้า/, /ชือผู้ซื้อ/, /ชื่อผู้ซี้อ/];
-      for(const p of anchorPatterns){ const i = rawText.search(p); if(i !== -1){ start = i; break; } }
-    }
+    const lm = rawText.match(/ชื่อผู้ซื้อ|ชือผู้ซื้อ|ผู้ซื้อสินค้า|ชื่อลูกค้า|ชื่อสมาชิก|Bill\s*To|Customer\s*Name|Sold\s*To/i);
+    const labelIdx = lm ? lm.index : -1;
+    let start = [taxStart, labelIdx].filter(x => x >= 0).reduce((a,b) => Math.min(a,b), Infinity);
+    if(!isFinite(start)) start = -1;
     if(start === -1) return { primary: rawText, extended: rawText };
-    let windowText = rawText.slice(start);
-    const endMarkers = ['NO.', 'จำนวน', 'รายการสินค้า', 'ลำดับ'];
+    const windowText = rawText.slice(start);
+    const upper = windowText.toUpperCase();
+    const endMarkers = ['NO.', 'จำนวน', 'รายการสินค้า', 'ลำดับ', 'รหัสสินค้า', 'DESCRIPTION', 'U.PRICE'];
     let endIdx = windowText.length;
-    for(const mk of endMarkers){ const mi = windowText.indexOf(mk); if(mi!==-1 && mi<endIdx) endIdx=mi; }
+    for(const mk of endMarkers){ const mi = upper.indexOf(mk); if(mi > 0 && mi < endIdx) endIdx = mi; }
     // Generous cap — just a sanity ceiling, not meant to bind in practice.
-    // OCR output on noisy scans often has long runs of stray whitespace or
-    // garbled characters between the tax-id line and the address, so a
-    // tight cap here can truncate the window before the address/postal
-    // code is even reached.
     endIdx = Math.min(endIdx, 800);
     const result = windowText.slice(0, endIdx);
-    // Safety net: a genuine customer block (name + address) is never this
-    // short. If we land here, something matched where it shouldn't have —
-    // fall back to the full page rather than silently reporting "not
-    // found" for text that's actually right there in the OCR output.
+    // A genuine customer block (name + address) is never this short — if we
+    // land here something matched where it shouldn't have, so fall back to
+    // the full page rather than silently reporting "not found".
     const primary = result.trim().length < 40 ? rawText : result;
-    // Second, WIDER text for a per-word fallback: everything from the
-    // customer tax-id onward with no end-marker cut and no length cap. Seen
-    // in practice: Tesseract's reading order sometimes places the last line
-    // of the address (province/postal code, e.g. "จังหวัดกรุงเทพมหานคร
-    // 10900" printed on its own line right after the street address) AFTER
-    // the item table in the raw text stream, even though it's visually
-    // right below the address — which pushes it past the "NO."/"จำนวน" end
-    // marker and out of `primary` entirely. This still starts after the
-    // customer's own tax id, so it can't cross-match the issuer's address
-    // block above it, the one risk section scoping was added to prevent.
     return { primary, extended: windowText };
   }
   // Also mask out the customer's own tax-id digits from that scoped text
@@ -928,7 +919,7 @@
     const m = rawText.match(/เลขที่\s*[:：]?\s*([A-Za-z0-9]{5,20})([ \t]+[0-9]{4,10})?/);
     if(!m){
       // English-labelled receipts (e.g. Go Wholesale: "Receipt No. CM1I02526100025635")
-      const en = rawText.match(/Receipt\s*No\.?\s*[:：]?\s*([A-Za-z0-9]{8,24})/i);
+      const en = rawText.match(/(?:Receipt|Inv(?:oice)?)\s*No\.?\s*[:：]?\s*([A-Za-z0-9\-]{5,24})/i);
       return en ? en[1] : '';
     }
     let val = m[1].trim();
@@ -976,7 +967,7 @@
   // (Tops and other issuers). Scans every "วันที่" so a leading label that
   // is followed by something else doesn't hide a later valid date.
   function extractInvoiceDate(rawText){
-    const re = /วันที่\s*[:：]?\s*(\d{1,2})\s*(?:\/\s*(\d{1,2})\s*\/|([ก-๙][ก-๙.\s]{1,14}?))\s*(\d{4}|\d{2})(?!\d)/g;
+    const re = /(?:วันที่|Date(?:\s*\/\s*Time)?)\s*[:：]?\s*(\d{1,2})\s*(?:\/\s*(\d{1,2})\s*\/|([ก-๙][ก-๙.\s]{1,14}?))\s*(\d{4}|\d{2})(?!\d)/g;
     let m;
     while((m = re.exec(rawText)) !== null){
       const day = +m[1];
@@ -1147,6 +1138,29 @@
     'มูลค่าก่อนภาษีมูลค่าเพิ่ม','จำนวนเงินก่อนภาษีมูลค่าเพิ่ม','ยอดก่อนภาษีมูลค่าเพิ่ม','ราคาสินค้าก่อนภาษี'];
   const TOTAL_LABELS = ['รวมเงินทั้งสิ้น','รวมทั้งสิ้น','จำนวนเงินรวมทั้งสิ้น','ยอดรวมทั้งสิ้น',
     'ยอดเงินสุทธิ','ยอดเงินรวม','มูลค่าสินค้าที่รวมภาษีมูลค่าเพิ่ม','มูลค่าสินค้ารวมภาษีมูลค่าเพิ่ม','รวมเงิน'];
+  // Thai VAT is a fixed 7%, so every receipt that is wholly VAT-able prints
+  // a (total, ex-VAT subtotal, VAT) triple with total = subtotal + vat and
+  // vat ≈ 7% of subtotal, regardless of the issuer's layout or label wording.
+  // Searching the page's amounts for such a triple finds the right figures
+  // even when the labels are unreadable/unknown (e.g. English "TOTAL (Incl
+  // VAT)" or a table row like "V สินค้าที่มีภาษี 7%  190.00 12.43 177.57").
+  // With preferTotal, only a triple whose total equals it counts.
+  function findVatTriple(all, preferTotal){
+    const nums = Array.from(new Set(all.map(a => Math.round(parseFloat(a.replace(/,/g,''))*100)/100)))
+      .filter(n => !isNaN(n) && n > 0);
+    let best = null;
+    for(const total of nums){
+      if(preferTotal != null && Math.abs(total - preferTotal) > 0.005) continue;
+      for(const sub of nums){
+        if(sub >= total) continue;
+        const vat = Math.round((total - sub)*100)/100;
+        if(vat <= 0 || Math.abs(vat - sub*0.07) > 0.02) continue;
+        if(!nums.some(n => Math.abs(n - vat) < 0.005)) continue;
+        if(!best || total > best.total) best = { total, sub, vat };
+      }
+    }
+    return best;
+  }
   function extractCpallAmounts(rawText){
     let subtotal = extractAmountByLabelList(rawText, SUBTOTAL_LABELS)
       || extractAmountFuzzy(rawText, ['มูลค่าสินค้าก่อนภาษีมูลค่าเพิ่ม'], 0.82)
@@ -1155,6 +1169,14 @@
       || extractAmountFuzzy(rawText, ['รวมเงินทั้งสิ้น'], 0.82)
       || extractAmountForward(rawText, ['รวมเงินทั้งสิ้น'], 30);
     const all = extractAllAmounts(rawText);
+    const labelTotalNum = total ? parseFloat(total.replace(/,/g,'')) : null;
+    const triple = findVatTriple(all, labelTotalNum);
+    if(triple){
+      // total/subtotal confirmed (or found) by the 7% VAT relationship
+      total = triple.total.toFixed(2);
+      subtotal = triple.sub.toFixed(2);
+      return { subtotal, total };
+    }
     if(!total && all.length>=1){
       // CP ALL: the grand total is the last amount on the page. Other issuers
       // print change/payment lines after it (the last figure can be 0.00), so
@@ -1176,7 +1198,7 @@
       if(/ปตท|น้ำมันและการค้าปลีก|ผู้ซื้อ/.test(l)) continue;
       const mm = l.match(/(?:บริษัท|บมจ\.?|บจก\.?|หจก\.?|ห้างหุ้นส่วน)\s*[^\d]*/);
       if(!mm) continue;
-      const name = mm[0].replace(/\s*(สาขา|เลขที่|เลขประจำตัว|ใบเสร็จ|ใบกำกับ).*$/,'').trim();
+      const name = mm[0].replace(/\s*(ส[าำ].{0,2}ขา|เลขที่|เลขประจำตัว|ใบเสร็จ|ใบกำกับ).*$/,'').replace(/[\s:：]+$/,'').trim();
       if(name.replace(/\s/g,'').length >= 6) return name;
     }
     return '';
@@ -1189,21 +1211,23 @@
     const headerIdx = lines.findIndex(l => l.includes('รายการสินค้า') || l.includes('ชื่อสินค้า') || /\bDescription\b/i.test(l)
       || similarityRatio(stripSpace('รายการสินค้า'), stripSpace(l)) >= 0.75);
     if(headerIdx === -1) return '';
-    for(let i=headerIdx+1; i<Math.min(lines.length, headerIdx+8); i++){
-      const l = lines[i];
-      if(/^[\d.,\s]+$/.test(l)) continue;
-      if(/ราคาต่อหน่วย|ราคาภาษีมูลค่าเพิ่ม|^จำนวน$|^NO\.?$/i.test(l)) continue;
-      if(/[ก-๙]/.test(l)){
-        // Drop a leading "NO. qty" / "NO. flag barcode" prefix and any trailing
-        // qty/price/amount columns that share the line with the item name.
-        let t = l.replace(/^\d+\s+(?:[\d.]+\s+)?(?:[A-Za-z]\s+)?\d{6,}\s+/, '')
-                 .replace(/^\d+\s+\d+\s+/, '');
-        // trailing price/amount columns and unit/VAT-code letters ("PACK 190.00 V 190.00")
-        const toks = t.split(/\s+/);
-        while(toks.length > 1 && /^([\d,]+\.\d{2}|[A-Z]{1,5})$/.test(toks[toks.length-1])) toks.pop();
-        return toks.join(' ').trim();
-      }
-    }
+    const clean = (l) => {
+      // Drop a leading "NO. qty" / "NO. flag barcode" prefix and any trailing
+      // qty/price/amount columns that share the line with the item name.
+      let t = l.replace(/^\d+\s+(?:[\d.]+\s+)?(?:[A-Za-z]\s+)?\d{6,}\s+/, '')
+               .replace(/^\d+\s+\d+\s+/, '');
+      const toks = t.split(/\s+/);
+      // leading barcode / qty@price tokens (digits, no Thai) before the name
+      while(toks.length > 1 && /\d/.test(toks[0]) && !/[ก-๙]/.test(toks[0])) toks.shift();
+      // trailing qty/price/amount columns, unit and VAT-code letters
+      while(toks.length > 1 && /^([\d,]+\.\d+|[A-Z]{1,5}|[A-Za-zก-ฮ])$/.test(toks[toks.length-1]) && !(toks.length === 2 && /^[A-Z]{2,5}$/.test(toks[1]) && !/[ก-๙]/.test(toks[0]))) toks.pop();
+      return toks.join(' ').trim();
+    };
+    const skip = (l) => /^[\d.,\s]+$/.test(l) || /ราคาต่อหน่วย|ราคาภาษีมูลค่าเพิ่ม|^จำนวน$|^NO\.?$/i.test(l);
+    const end = Math.min(lines.length, headerIdx+8);
+    // Thai item name first; English-only receipts (e.g. Mr. D.I.Y.) next.
+    for(let i=headerIdx+1; i<end; i++){ if(!skip(lines[i]) && /[ก-๙]/.test(lines[i])) return clean(lines[i]); }
+    for(let i=headerIdx+1; i<end; i++){ if(!skip(lines[i]) && /[A-Za-z]{3,}/.test(lines[i])) return clean(lines[i]); }
     return '';
   }
   function extractExcelFields(rawText){
@@ -1472,7 +1496,7 @@
               const single = stampText.match(/(S|C)\s?([0-9]{3,6})/);
               if(single) excel.branchCode = single[1] + 'C ' + single[2];
               else{
-                const digitRun = stampText.match(/\d{3,6}/);
+                const digitRun = stampText.match(/(?<![\d\/])\d{4}(?![\d\/])/) || stampText.match(/\d{3,6}/);
                 if(digitRun) excel.branchCode = digitRun[0];
               }
             }
