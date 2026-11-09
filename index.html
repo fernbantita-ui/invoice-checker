@@ -268,7 +268,7 @@
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
     <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
     <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้<br>
-    <span style="opacity:0.5;">build 2026-11-09-2</span>
+    <span style="opacity:0.5;">build 2026-11-09-3</span>
   </footer>
 </div>
 
@@ -1595,6 +1595,18 @@
       return;
     }
     els.resultsToolbar.style.display = 'flex';
+    // Duplicate-bill banner — right at the top of the results so repeats are
+    // impossible to miss (the per-row ⚠ pill is still there too).
+    const dupBills = allBills.filter(b => b.dupNote);
+    if(dupBills.length){
+      const box = document.createElement('div');
+      box.style.cssText = 'margin:0 0 12px; padding:12px 14px; border:1px solid var(--amber); background:var(--amber-soft); color:var(--ink); border-radius:8px; font-size:13px;';
+      box.innerHTML = `<div style="font-weight:700; color:var(--amber); margin-bottom:6px;">⚠ พบบิลซ้ำ / เคยตรวจแล้ว ${dupBills.length} บิล</div>` +
+        '<ul style="margin:0; padding-left:20px;">' +
+        dupBills.map(b => `<li><b>${escapeHtml(b.file)}</b> หน้า ${b.page}${b.excel.invoiceNo ? ` · เลขที่ ${escapeHtml(b.excel.invoiceNo)}` : ''} — ${escapeHtml(b.dupNote)}</li>`).join('') +
+        '</ul>';
+      els.resultsHolder.appendChild(box);
+    }
     const threshold = Math.max(0, Math.min(100, Number(els.threshold.value) || 0));
     const failOnly = els.failOnlyToggle.checked;
 
@@ -1606,7 +1618,7 @@
 
     const passCount = allBills.filter(b => b.overallScore*100 >= threshold).length;
     const vendorCount = new Set(allBills.map(b => b.excel.vendor || '').filter(Boolean)).size;
-    els.summaryText.textContent = `ผ่านเกณฑ์ ${passCount}/${allBills.length} บิล · ผู้ออก ${vendorCount} เจ้า`;
+    els.summaryText.textContent = `ผ่านเกณฑ์ ${passCount}/${allBills.length} บิล · ผู้ออก ${vendorCount} เจ้า${allBills.some(b=>b.dupNote) ? ` · ⚠ ซ้ำ ${allBills.filter(b=>b.dupNote).length} บิล` : ''}`;
 
     if(rows.length === 0){
       const div = document.createElement('div');
