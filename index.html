@@ -177,10 +177,15 @@
           <input type="text" id="customerNameInput" value="บริษัทปตท. น้ำมันและการค้าปลีก จำกัด (มหาชน)">
         </div>
         <div class="field-row">
+          <label>ที่อยู่/คำที่ต้องมี (ไว้ดูเทียบรายคำ — ไม่นับเป็นเงื่อนไขผ่าน/ตก)</label>
+          <textarea id="refText">สำนักงานใหญ่ 555/2 ศูนย์เอนเนอร์ยี่คอมเพล็กซ์ อาคารบี ชั้น 12
+ถนนวิภาวดีรังสิต แขวงจตุจักร เขตจตุจักร จังหวัดกรุงเทพฯ 10900</textarea>
+        </div>
+        <div class="field-row">
           <label>เลขประจำตัวผู้เสียภาษีลูกค้า</label>
           <input type="text" id="taxIdInput" value="0107561000013">
         </div>
-        <p class="hint">ตรวจแค่ 3 อย่าง: มีชื่อลูกค้า + มีเลขผู้เสียภาษี + ถ้าไม่ใช่ "สำนักงานใหญ่" ต้องมี "สาขา" (ไม่ตรวจที่อยู่ละเอียดแล้ว)</p>
+        <p class="hint">ตรวจแค่ 3 อย่าง: มีชื่อลูกค้า + มีเลขผู้เสียภาษี + ถ้าไม่ใช่ "สำนักงานใหญ่" ต้องมี "สาขา" (ที่อยู่รายคำแสดงไว้ให้ดูเทียบเท่านั้น)</p>
       </div>
 
       <div class="panel">
@@ -263,7 +268,7 @@
     <strong>สิ่งที่แก้รอบนี้:</strong> (1) การดึงยอดเงินตอนนี้ใช้สองวิธีร่วมกัน — หาเลขติดป้ายชื่อก่อน ถ้าไม่เจอ (เพราะ OCR อ่านคอลัมน์ป้ายชื่อกับตัวเลขแยกกัน) จะนับตำแหน่งจากท้ายกลุ่มตัวเลข 7 ค่าสุดท้ายแทน ซึ่งเป็นโครงสร้างตายตัวของใบเสร็จ CP ALL เสมอ — ทดสอบแล้วทั้งสองกรณี (2) เพิ่มคอลัมน์ "เลขสาขา" อ่านจาก "สาขาที่ออกใบกำกับภาษี : #####" ที่พิมพ์อยู่บนใบทุกใบ (ไม่ใช่จากตราปั๊มสี เพราะแบบฟอร์มนี้ไม่มี)<br>
     <strong>เรื่องการ "เทรน":</strong> ปุ่ม ✓/✗ บันทึกกฎยกเว้นลงในเบราว์เซอร์แบบถาวร (ใช้ localStorage-like API สะสมไปเรื่อยๆ ไม่หายเมื่อกด "ล้างทั้งหมด" หรือปิดหน้าเว็บ — หายเฉพาะถ้าล้างข้อมูลเบราว์เซอร์เท่านั้น) จำนวนครั้งสะสมโชว์อยู่มุมซ้ายบนของกล่องอัปโหลด — **ขอย้ำอีกครั้งว่านี่ไม่ใช่ AI ที่เทรนโมเดลจริง** เป็นแค่รายการคำที่ยืนยัน/ปฏิเสธไว้ใช้ในการจับคู่ครั้งต่อไป<br>
     <strong>Excel:</strong> ชีท "รายละเอียด" มีข้อมูลตรวจสอบทั้งหมดไว้ตรวจทาน — ชีท "กรอกเอกสาร" กรอก CODE/ชื่อร้าน/ผู้จัดการเขตให้อัตโนมัติถ้าจับสาขาได้<br>
-    <span style="opacity:0.5;">build 2026-11-09-1</span>
+    <span style="opacity:0.5;">build 2026-11-09-2</span>
   </footer>
 </div>
 
@@ -299,7 +304,7 @@
   }
 
   const els = {};
-  ['customerNameInput','taxIdInput',
+  ['refText','customerNameInput','taxIdInput',
    'dateEndInput','threshold','dropzone','fileInput','fileList',
    'runBtn','clearBtn','resultsHolder','emptyState','resultsToolbar','failOnlyToggle',
    'summaryText','statusLine','progressFill','exportBtn','copySection','copyHolder',
@@ -1375,6 +1380,7 @@
     els.copySection.style.display = 'none';
     els.exportBtn.disabled = true;
     const nameWords = els.customerNameInput.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
+    const addressWords = els.refText.value.split(/\s+/).map(w=>w.trim()).filter(Boolean);
     const customerTaxId = els.taxIdInput.value.replace(/\D/g,'');
     const dateEnd = els.dateEndInput.value;
     const files = queuedFiles.slice();
@@ -1448,8 +1454,14 @@
         const hasBranch = !!branchM;
         const addrPass = isHeadOffice || hasBranch;
         const addrAvg = addrPass ? 1 : 0;
-        const wordResults = [{
-          word: 'สำนักงานใหญ่ หรือ สาขา',
+        // Word-by-word address rows are shown for eyeballing only — they do
+        // NOT affect pass/fail (that's the head-office/branch rule above).
+        const addrWordRows = addressWords.map(w2 => {
+          const r = matchWordWide(w2);
+          return { word: w2, score: r.score, match: r.match, bbox: r.bbox, status: classify(w2, r.score) };
+        });
+        const wordResults = [...addrWordRows, {
+          word: 'สำนักงานใหญ่ หรือ สาขา (เงื่อนไขผ่าน/ตก)',
           score: addrPass ? 1 : 0,
           match: isHeadOffice ? 'สำนักงานใหญ่' : (hasBranch ? branchM[0].trim() : ''),
           bbox: null,
